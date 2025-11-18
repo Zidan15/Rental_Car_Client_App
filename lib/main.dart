@@ -5,6 +5,7 @@ import 'package:client_app/screens/search_input_screen.dart';
 import 'package:client_app/services/user_service.dart';
 
 void main() {
+  // Ensure that platform bindings are initialized before calling native code (like SharedPreferences)
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const RentGoaApp());
 }
@@ -17,7 +18,8 @@ class RentGoaApp extends StatelessWidget {
     return MaterialApp(
       title: 'RENT.GOA',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      // Assuming AppTheme.lightTheme is correctly defined
+      theme: AppTheme.lightTheme, 
       home: const SplashScreen(),
     );
   }
@@ -41,8 +43,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _navigateUser() async {
     try {
-      // Add timeout safety to prevent infinite wait on web
-      final bool isLoggedIn = await _userService.isLoggedIn()
+      // 🎯 CRITICAL CHANGE: Use getLoginState() to check the persistent flag.
+      // This is the auto-login check we are implementing.
+      final bool isLoggedIn = await _userService.getLoginState() 
           .timeout(const Duration(seconds: 5), onTimeout: () => false);
 
       // Slight splash delay for UX

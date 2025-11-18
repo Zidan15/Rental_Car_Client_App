@@ -6,6 +6,23 @@ import 'package:flutter/foundation.dart';
 class UserService {
   static const String _usersKey = 'users';
   static const String _currentUserKey = 'currentUser';
+  static const String _isLoggedInFlagKey = 'isLoggedInFlag'; // NEW key for persistent login flag
+
+  // --- NEW PERSISTENCE METHODS ---
+  
+  // Saves a flag indicating whether the user is logged in
+  Future<void> saveLoginState(bool isLoggedIn) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_isLoggedInFlagKey, isLoggedIn);
+  }
+
+  // Retrieves the persistent login flag for auto-login (used in main.dart)
+  Future<bool> getLoginState() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Returns true if the flag is set, otherwise false
+    return prefs.getBool(_isLoggedInFlagKey) ?? false;
+  }
+  // ------------------------------
 
   Future<void> signUp(String fullName, String email, String phoneNumber, String address, DateTime dateOfBirth, String password) async {
     final prefs = await SharedPreferences.getInstance();
@@ -31,6 +48,9 @@ class UserService {
     usersList.add(newUser.toJson());
     await prefs.setString(_usersKey, jsonEncode(usersList));
     await prefs.setString(_currentUserKey, jsonEncode(newUser.toJson()));
+    
+    // ACTION: Set the persistent login flag to true after successful sign up
+    await saveLoginState(true); 
   }
 
   Future<void> login(String email, String password) async {
@@ -44,6 +64,9 @@ class UserService {
     }
 
     await prefs.setString(_currentUserKey, jsonEncode(user));
+    
+    // ACTION: Set the persistent login flag to true after successful login
+    await saveLoginState(true); 
   }
 
   Future<UserModel?> getCurrentUser() async {
@@ -80,8 +103,13 @@ class UserService {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_currentUserKey);
+    
+    // ACTION: Clear the persistent login flag on logout
+    await saveLoginState(false);
   }
 
+  // NOTE: The `isLoggedIn` method is now mostly redundant for auto-login,
+  // but we keep it here as it was part of your original code.
   Future<bool> isLoggedIn() async {
     final user = await getCurrentUser();
     return user != null;

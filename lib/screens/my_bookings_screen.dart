@@ -40,8 +40,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Bookings')),
+    // AppBar is removed as the main Scaffold in SearchInputScreen will provide it.
+    return Scaffold( 
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.black))
           : _bookings.isEmpty

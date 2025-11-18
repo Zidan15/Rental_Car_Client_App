@@ -10,7 +10,7 @@ dependencies:
   qr_flutter: ^4.0.0
   file_picker: '>=8.1.2'
   intl: 0.20.2
-  shared_preferences: ^2.0.0
+  shared_preferences: ^2.2.2 # For persistent login (Auto-Login)
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
@@ -25,8 +25,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
-
+    - assets/images/ # Use this specific path since your file is here
+    - assets/ # Keep this as a general path for other assets
+    
 flutter_launcher_icons:
   android: true
   ios: true
