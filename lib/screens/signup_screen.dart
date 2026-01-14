@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:client_app/services/user_service.dart';
 import 'package:client_app/screens/search_input_screen.dart';
+import 'package:client_app/screens/initial_screen.dart';
 import 'package:intl/intl.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -69,9 +70,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _passwordController.text,
       );
       if (!mounted) return;
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Signup successful! Please login.')),
+      );
+
+      // Navigate to Login Screen (InitialScreen)
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const SearchInputScreen()),
+        MaterialPageRoute(builder: (_) => InitialScreen()),
         (route) => false,
       );
     } catch (e) {

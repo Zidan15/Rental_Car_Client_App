@@ -1,29 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:client_app/models/car_model.dart';
-import 'package:client_app/models/service_provider_model.dart';
+import 'package:client_app/models/listing.dart';
 import 'package:client_app/services/user_service.dart';
 import 'package:client_app/services/booking_service.dart';
 import 'package:client_app/screens/payment_screen.dart';
 import 'package:intl/intl.dart';
 
 class BookingSummaryScreen extends StatelessWidget {
-  final CarModel car;
-  final ServiceProviderModel provider;
+  final Listing listing;
   final DateTime startDate;
   final DateTime endDate;
   final String location;
 
   const BookingSummaryScreen({
     super.key,
-    required this.car,
-    required this.provider,
+    required this.listing,
     required this.startDate,
     required this.endDate,
     required this.location,
   });
 
   int get numberOfDays => endDate.difference(startDate).inDays + 1;
-  double get totalPrice => provider.pricePerDay * numberOfDays;
+  double get totalPrice => listing.pricePerDay * numberOfDays;
 
   @override
   Widget build(BuildContext context) {
@@ -36,33 +33,35 @@ class BookingSummaryScreen extends StatelessWidget {
           children: [
             Text('Car Details', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            _buildInfoRow('Car', car.name),
-            _buildInfoRow('Category', car.category),
-            _buildInfoRow('Transmission', car.transmission),
-            _buildInfoRow('Fuel Type', car.fuelType),
-            _buildInfoRow('Seats', '${car.seats}'),
+            _buildInfoRow('Car', '${listing.brand} ${listing.model}'),
+            _buildInfoRow('Year', '${listing.year}'),
+            _buildInfoRow('Transmission', listing.transmission ?? 'N/A'),
+            _buildInfoRow('Fuel Type', listing.fuelType ?? 'N/A'),
             const SizedBox(height: 24),
-            Text('Provider Details', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            _buildInfoRow('Provider', provider.name),
-            _buildInfoRow('Phone', provider.phoneNumber),
-            const SizedBox(height: 24),
+            
             Text('Booking Details', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             _buildInfoRow('Pickup Location', location),
             _buildInfoRow('Start Date', DateFormat('dd MMM yyyy').format(startDate)),
             _buildInfoRow('End Date', DateFormat('dd MMM yyyy').format(endDate)),
             const SizedBox(height: 24),
+            
             Text('Price Breakdown', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            _buildInfoRow('Price per Day', '₹${provider.pricePerDay.toStringAsFixed(0)}'),
+            _buildInfoRow('Price per Day', '₹${listing.pricePerDay.toStringAsFixed(0)}'),
             _buildInfoRow('Number of Days', '$numberOfDays'),
             const Divider(height: 32),
             _buildInfoRow('Total Price', '₹${totalPrice.toStringAsFixed(0)}', isBold: true),
             const SizedBox(height: 32),
+            
             ElevatedButton(
               onPressed: () => _confirmAndProceed(context),
-              child: const Text('Confirm & Proceed to Payment'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              child: const Text('Confirm & Request Booking'),
             ),
           ],
         ),
@@ -90,35 +89,44 @@ class BookingSummaryScreen extends StatelessWidget {
   }
 
   Future<void> _confirmAndProceed(BuildContext context) async {
+    debugPrint('BookingSummary: Confirm button pressed');
+    
     final userService = UserService();
     final bookingService = BookingService();
     
+    debugPrint('BookingSummary: Getting current user...');
     final user = await userService.getCurrentUser();
     if (user == null) {
+      debugPrint('BookingSummary: User is NULL!');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User not found')));
       return;
     }
 
+    debugPrint('BookingSummary: User found: ${user.id}');
+    debugPrint('BookingSummary: Creating booking...');
+    
     try {
       await bookingService.createBooking(
-        userId: user.id,
-        car: car,
-        provider: provider,
+        listing: listing,
         startDate: startDate,
         endDate: endDate,
-        pickupLocation: location,
         totalPrice: totalPrice,
+        pickupLocation: location,
       );
 
+      debugPrint('BookingSummary: Booking created successfully!');
+      
       if (!context.mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PaymentScreen(totalPrice: totalPrice),
-        ),
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Booking Request Sent!'), backgroundColor: Colors.green),
       );
+      
+      Navigator.popUntil(context, (route) => route.isFirst);
+      
     } catch (e) {
+      debugPrint('BookingSummary: Error creating booking: $e');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }

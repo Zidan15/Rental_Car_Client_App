@@ -121,13 +121,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (_user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          title: const Text('PROFILE'),
+          centerTitle: true,
+        ),
         body: const Center(child: Text('User not found')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('PROFILE'),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -136,37 +142,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Profile Avatar
+                Center(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 48,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Personal Information Section Header
+                const Text(
+                  'Personal Information',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
                 const SizedBox(height: 16),
+                
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Full Name'),
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    prefixIcon: Icon(Icons.person_outline, color: Colors.black54),
+                  ),
                   validator: (v) => v?.isEmpty ?? true ? 'Name is required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: const Icon(Icons.email_outlined, color: Colors.black54),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                  ),
                   keyboardType: TextInputType.emailAddress,
-                  validator: (v) => v?.isEmpty ?? true ? 'Email is required' : null,
+                  readOnly: true,
+                  enabled: false, // Greyed out - email cannot be changed
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _phoneController,
-                  decoration: const InputDecoration(labelText: 'Phone Number'),
+                  decoration: const InputDecoration(
+                    labelText: 'Contact Number',
+                    prefixIcon: Icon(Icons.phone_outlined, color: Colors.black54),
+                  ),
                   keyboardType: TextInputType.phone,
                   validator: (v) => v?.isEmpty ?? true ? 'Phone number is required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
+                  decoration: const InputDecoration(
+                    labelText: 'Address',
+                    prefixIcon: Icon(Icons.location_on_outlined, color: Colors.black54),
+                  ),
                   maxLines: 2,
                   validator: (v) => v?.isEmpty ?? true ? 'Address is required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _dobController,
-                  decoration: const InputDecoration(labelText: 'Date of Birth', suffixIcon: Icon(Icons.calendar_today, color: Colors.black)),
+                  decoration: const InputDecoration(
+                    labelText: 'Date of Birth',
+                    prefixIcon: Icon(Icons.calendar_today_outlined, color: Colors.black54),
+                  ),
                   readOnly: true,
                   onTap: _selectDate,
                   validator: (v) => v?.isEmpty ?? true ? 'Date of birth is required' : null,
@@ -174,17 +226,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 32),
                 ElevatedButton(
                   onPressed: _isSaving ? null : _saveProfile,
-                  child: _isSaving ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save Changes'),
+                  child: _isSaving 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                    : const Text('Save Changes'),
                 ),
                 const SizedBox(height: 16),
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: _logout,
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  label: const Text('Logout'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black,
-                    side: const BorderSide(color: Colors.black),
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
                     minimumSize: const Size(double.infinity, 50),
                   ),
-                  child: const Text('Logout'),
                 ),
                 const SizedBox(height: 24),
               ],

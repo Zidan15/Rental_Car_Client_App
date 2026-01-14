@@ -1,83 +1,72 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:client_app/models/booking_model.dart';
-import 'package:client_app/models/car_model.dart';
-import 'package:client_app/models/service_provider_model.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:client_app/models/listing.dart';
+import 'package:client_app/models/booking_model.dart';
 
 class BookingService {
-  static const String _bookingsKey = 'bookings';
+  final _supabase = Supabase.instance.client;
 
   Future<void> createBooking({
-    required String userId,
-    required CarModel car,
-    required ServiceProviderModel provider,
+    required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
-    required String pickupLocation,
     required double totalPrice,
+    required String pickupLocation,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final bookingsJson = prefs.getString(_bookingsKey) ?? '[]';
-      final List<dynamic> bookingsList = jsonDecode(bookingsJson);
+      final userId = _supabase.auth.currentUser!.id;
 
-      final newBooking = BookingModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: userId,
-        car: car,
-        provider: provider,
-        startDate: startDate,
-        endDate: endDate,
-        pickupLocation: pickupLocation,
-        totalPrice: totalPrice,
-        status: 'Upcoming',
-        bookingDate: DateTime.now(),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      bookingsList.add(newBooking.toJson());
-      await prefs.setString(_bookingsKey, jsonEncode(bookingsList));
+      await _supabase.from('bookings').insert({
+        'vehicle_id': listing.id,
+        'renter_id': userId,
+        'start_date': startDate.toIso8601String(),
+        'end_date': endDate.toIso8601String(),
+        'total_price': totalPrice,
+        'pickup_location': pickupLocation,
+        'status': 'pending',
+      });
     } catch (e) {
-      debugPrint('Error creating booking: $e');
-      throw Exception('Failed to create booking');
+      throw Exception('Failed to create booking: $e');
     }
   }
 
+  // Fetch bookings for the current user
   Future<List<BookingModel>> getUserBookings(String userId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final bookingsJson = prefs.getString(_bookingsKey) ?? '[]';
-      final List<dynamic> bookingsList = jsonDecode(bookingsJson);
+      debugPrint('Fetching bookings for renter: $userId');
+      
+      // Join with vehicles to get vehicle details
+      final data = await _supabase
+          .from('bookings')
+          .select('*, vehicles(brand, model, year)')
+          .eq('renter_id', userId)
+          .order('created_at', ascending: false);
 
-      final userBookings = bookingsList
+      debugPrint('Bookings received: ${data.length} items');
+
+      return (data as List<dynamic>)
           .map((json) => BookingModel.fromJson(json))
-          .where((booking) => booking.userId == userId)
           .toList();
-
-      userBookings.sort((a, b) => b.bookingDate.compareTo(a.bookingDate));
-
-      return userBookings;
     } catch (e) {
-      debugPrint('Error getting user bookings: $e');
+      debugPrint('Error fetching user bookings: $e');
       return [];
     }
   }
 
-  Future<BookingModel?> getBookingById(String id) async {
+  // Fetch a single booking by ID
+  Future<BookingModel?> getBookingById(String bookingId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final bookingsJson = prefs.getString(_bookingsKey) ?? '[]';
-      final List<dynamic> bookingsList = jsonDecode(bookingsJson);
+      final data = await _supabase
+          .from('bookings')
+          .select('*, vehicles(brand, model, year)')
+          .eq('id', bookingId)
+          .single();
 
-      final bookingJson = bookingsList.firstWhere((b) => b['id'] == id, orElse: () => null);
-      if (bookingJson == null) return null;
-
-      return BookingModel.fromJson(bookingJson);
+      return BookingModel.fromJson(data);
     } catch (e) {
-      debugPrint('Error getting booking by id: $e');
+      debugPrint('Error fetching booking details: $e');
       return null;
     }
   }
 }
+

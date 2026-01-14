@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:client_app/theme.dart';
 import 'package:client_app/screens/initial_screen.dart';
 import 'package:client_app/screens/search_input_screen.dart';
 import 'package:client_app/services/user_service.dart';
 
-void main() {
-  // Ensure that platform bindings are initialized before calling native code (like SharedPreferences)
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://ojmzdmtpxdoaisvtefln.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qbXpkbXRweGRvYWlzdnRlZmxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMTg1NTQsImV4cCI6MjA3ODU5NDU1NH0.YPU2PxWMo_9gPKuH23WaO1RVjMsQZLi8By00b4iA3rM',
+  );
+
   runApp(const RentGoaApp());
 }
 

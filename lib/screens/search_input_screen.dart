@@ -30,12 +30,6 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   // --- Bottom Navigation State ---
   int _currentIndex = 0;
 
-  // Correctly define the list of screens by calling the function
-  late final List<Widget> _screens = [
-    _buildSearchForm(),        // Index 0: The Search Form content
-    const MyBookingsScreen(),  // Index 1: The My Bookings Screen
-  ];
-
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
@@ -296,11 +290,10 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
       ),
       // ----------------------------------------
       
-      // --- BODY: Use IndexedStack for Tab Content ---
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      // --- BODY: Conditional rendering so MyBookingsScreen rebuilds each time ---
+      body: _currentIndex == 0
+          ? _buildSearchForm()
+          : const MyBookingsScreen(),
       
       // --- BOTTOM NAVIGATION BAR ---
       bottomNavigationBar: BottomNavigationBar(

@@ -25,13 +25,17 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Future<void> _loadBookings() async {
+    debugPrint('MyBookingsScreen: Loading bookings...');
     final user = await _userService.getCurrentUser();
     if (user == null) {
+      debugPrint('MyBookingsScreen: User is NULL - not logged in!');
       setState(() => _isLoading = false);
       return;
     }
 
+    debugPrint('MyBookingsScreen: User ID = ${user.id}');
     final bookings = await _bookingService.getUserBookings(user.id);
+    debugPrint('MyBookingsScreen: Got ${bookings.length} bookings');
     setState(() {
       _bookings = bookings;
       _isLoading = false;
@@ -40,27 +44,55 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // AppBar is removed as the main Scaffold in SearchInputScreen will provide it.
-    return Scaffold( 
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Bookings'),
+        automaticallyImplyLeading: false,
+        actions: [
+          // Refresh button for desktop users
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadBookings,
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.black))
           : _bookings.isEmpty
-              ? const Center(child: Text('No bookings found'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _bookings.length,
-                  itemBuilder: (context, index) {
-                    final booking = _bookings[index];
-                    return BookingCard(
-                      booking: booking,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BookingDetailsScreen(bookingId: booking.id),
-                        ),
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('No bookings found'),
+                      const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: _loadBookings,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
                       ),
-                    );
-                  },
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadBookings,
+                  color: Colors.black,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _bookings.length,
+                    itemBuilder: (context, index) {
+                      final booking = _bookings[index];
+                      return BookingCard(
+                        booking: booking,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BookingDetailsScreen(bookingId: booking.id),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }
@@ -89,17 +121,24 @@ class BookingCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(child: Text(booking.car.name, style: Theme.of(context).textTheme.titleLarge)),
+                Expanded(
+                  child: Text(
+                    booking.vehicleDisplayName,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: booking.status == 'Upcoming' ? Colors.black : Colors.grey[300],
+                    color: booking.status == 'pending' ? Colors.orange : 
+                           booking.status == 'confirmed' ? Colors.green : Colors.grey[300],
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    booking.status,
+                    booking.status.toUpperCase(),
                     style: TextStyle(
-                      color: booking.status == 'Upcoming' ? Colors.white : Colors.black,
+                      color: booking.status == 'pending' || booking.status == 'confirmed' 
+                          ? Colors.white : Colors.black,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -108,18 +147,19 @@ class BookingCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(booking.provider.name, style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              '${DateFormat('dd MMM').format(booking.startDate)} - ${DateFormat('dd MMM yyyy').format(booking.endDate)}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             const SizedBox(height: 4),
-            Text('${DateFormat('dd MMM').format(booking.startDate)} - ${DateFormat('dd MMM yyyy').format(booking.endDate)}', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 4),
-            Text(booking.pickupLocation, style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              '${booking.numberOfDays} day${booking.numberOfDays > 1 ? 's' : ''}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+            ),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('₹${booking.totalPrice.toStringAsFixed(0)}', style: Theme.of(context).textTheme.titleMedium),
-                Text(booking.provider.phoneNumber, style: Theme.of(context).textTheme.bodySmall),
-              ],
+            Text(
+              '₹${booking.totalPrice.toStringAsFixed(0)}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),

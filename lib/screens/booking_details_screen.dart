@@ -53,31 +53,60 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Car Details', style: Theme.of(context).textTheme.titleLarge),
+            // Vehicle Info
+            Text('Vehicle', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            _buildInfoRow('Car', _booking!.car.name),
-            _buildInfoRow('Category', _booking!.car.category),
-            _buildInfoRow('Transmission', _booking!.car.transmission),
-            _buildInfoRow('Fuel Type', _booking!.car.fuelType),
-            _buildInfoRow('Seats', '${_booking!.car.seats}'),
+            _buildInfoRow('Vehicle', _booking!.vehicleDisplayName),
+            if (_booking!.vehicleBrand != null)
+              _buildInfoRow('Brand', _booking!.vehicleBrand!),
+            if (_booking!.vehicleModel != null)
+              _buildInfoRow('Model', _booking!.vehicleModel!),
+            if (_booking!.vehicleYear != null)
+              _buildInfoRow('Year', '${_booking!.vehicleYear}'),
+            
             const SizedBox(height: 24),
-            Text('Provider Details', style: Theme.of(context).textTheme.titleLarge),
+            
+            // Location Info
+            Text('Pickup Location', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            _buildInfoRow('Provider', _booking!.provider.name),
-            _buildInfoRow('Phone', _booking!.provider.phoneNumber),
+            _buildInfoRow('Location', _booking!.pickupLocation ?? 'Not specified'),
+            // Map placeholder for future integration
+            Container(
+              height: 150,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.map, size: 48, color: Colors.grey),
+                    SizedBox(height: 8),
+                    Text('Map coming soon', style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+            
             const SizedBox(height: 24),
+            
+            // Booking Info
             Text('Booking Details', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            _buildInfoRow('Pickup Location', _booking!.pickupLocation),
             _buildInfoRow('Start Date', DateFormat('dd MMM yyyy').format(_booking!.startDate)),
             _buildInfoRow('End Date', DateFormat('dd MMM yyyy').format(_booking!.endDate)),
-            _buildInfoRow('Status', _booking!.status),
+            _buildInfoRow('Duration', '${_booking!.numberOfDays} day${_booking!.numberOfDays > 1 ? 's' : ''}'),
+            _buildInfoRow('Status', _booking!.status.toUpperCase()),
+            _buildInfoRow('Booked On', DateFormat('dd MMM yyyy').format(_booking!.bookingDate)),
+            
             const SizedBox(height: 24),
-            Text('Price Breakdown', style: Theme.of(context).textTheme.titleLarge),
+            
+            // Price
+            Text('Payment', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            _buildInfoRow('Price per Day', '₹${_booking!.pricePerDay.toStringAsFixed(0)}'),
-            _buildInfoRow('Number of Days', '${_booking!.numberOfDays}'),
-            const Divider(height: 32),
+            const Divider(),
             _buildInfoRow('Total Price', '₹${_booking!.totalPrice.toStringAsFixed(0)}', isBold: true),
           ],
         ),
@@ -104,3 +133,4 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 }
+

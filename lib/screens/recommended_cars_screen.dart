@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:client_app/models/car_model.dart';
-import 'package:client_app/services/car_service.dart';
-import 'package:client_app/screens/service_provider_list_screen.dart';
+import 'package:client_app/models/listing.dart';
+import 'package:client_app/services/listing_service.dart';
+import 'package:client_app/screens/booking_summary_screen.dart';
 
 class RecommendedCarsScreen extends StatefulWidget {
   final DateTime startDate;
@@ -24,23 +24,50 @@ class RecommendedCarsScreen extends StatefulWidget {
 }
 
 class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
-  final _carService = CarService();
-  List<CarModel> _cars = [];
+  final _listingService = ListingService();
+  List<Listing> _listings = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadCars();
+    _loadListings();
   }
 
-  Future<void> _loadCars() async {
-    final cars = await _carService.searchCars(
-      category: widget.carType,
-      transmission: widget.transmission,
-    );
+  Future<void> _loadListings() async {
+    // Fetch all active listings from Supabase
+    final listings = await _listingService.fetchActiveListings();
+    
+    // Debug: Log what we received
+    debugPrint('Fetched ${listings.length} listings from Supabase');
+    for (var l in listings) {
+      debugPrint('  - ${l.brand} ${l.model}: category=${l.category}, transmission=${l.transmission}');
+    }
+    debugPrint('Search filters: carType=${widget.carType}, transmission=${widget.transmission}');
+    
+    // Filter by category and transmission based on user's search criteria
+    final filteredListings = listings.where((listing) {
+      // Filter by category (Car Type) - only filter if vehicle has a category set
+      if (widget.carType != null && widget.carType!.isNotEmpty) {
+        // If vehicle has no category, don't filter it out (be lenient for older data)
+        if (listing.category != null && listing.category!.isNotEmpty) {
+          if (listing.category != widget.carType) return false;
+        }
+      }
+      // Filter by transmission
+      if (widget.transmission != null && widget.transmission!.isNotEmpty) {
+        // If vehicle has no transmission set, don't filter it out
+        if (listing.transmission != null && listing.transmission!.isNotEmpty) {
+          if (listing.transmission != widget.transmission) return false;
+        }
+      }
+      return true;
+    }).toList();
+
+    debugPrint('After filtering: ${filteredListings.length} listings');
+
     setState(() {
-      _cars = cars;
+      _listings = filteredListings;
       _isLoading = false;
     });
   }
@@ -48,41 +75,58 @@ class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Recommended Cars')),
+      appBar: AppBar(title: const Text('Available Cars')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.black))
-          : _cars.isEmpty
-              ? const Center(child: Text('No cars found'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _cars.length,
-                  itemBuilder: (context, index) {
-                    final car = _cars[index];
-                    return CarCard(
-                      car: car,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ServiceProviderListScreen(
-                            car: car,
-                            startDate: widget.startDate,
-                            endDate: widget.endDate,
-                            location: widget.location,
+          : _listings.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('No cars found'),
+                      const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: _loadListings,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadListings,
+                  color: Colors.black,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _listings.length,
+                    itemBuilder: (context, index) {
+                      final listing = _listings[index];
+                      return ListingCard(
+                        listing: listing,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BookingSummaryScreen(
+                              listing: listing,
+                              startDate: widget.startDate,
+                              endDate: widget.endDate,
+                              location: widget.location,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
     );
   }
 }
 
-class CarCard extends StatelessWidget {
-  final CarModel car;
+class ListingCard extends StatelessWidget {
+  final Listing listing;
   final VoidCallback onTap;
 
-  const CarCard({super.key, required this.car, required this.onTap});
+  const ListingCard({super.key, required this.listing, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -97,36 +141,74 @@ class CarCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Image Placeholder (or real image if available)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-              child: Image.asset(
-                car.imageUrl,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 200,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.directions_car, size: 80, color: Colors.grey),
-                ),
-              ),
+              child: listing.imageUrl != null && listing.imageUrl!.isNotEmpty
+                  ? Image.network(
+                      listing.imageUrl!,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                    )
+                  : _buildPlaceholder(),
             ),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(car.name, style: Theme.of(context).textTheme.titleLarge),
+                  Text('${listing.brand} ${listing.model} ${listing.year}', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
-                  Text('${car.category} • ${car.transmission}', style: Theme.of(context).textTheme.bodyMedium),
-                  const SizedBox(height: 4),
-                  Text('${car.fuelType} • ${car.seats} Seats', style: Theme.of(context).textTheme.bodyMedium),
+                  Row(
+                    children: [
+                      if (listing.category != null) ...[
+                        _buildChip(listing.category!),
+                        const SizedBox(width: 8),
+                      ],
+                      _buildChip(listing.transmission ?? 'Manual'),
+                      const SizedBox(width: 8),
+                      _buildChip(listing.fuelType ?? 'Petrol'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₹${listing.pricePerDay.toStringAsFixed(0)}/day',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const Icon(Icons.arrow_forward, color: Colors.black),
+                    ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      height: 200,
+      width: double.infinity,
+      color: Colors.grey[200],
+      child: const Icon(Icons.directions_car, size: 80, color: Colors.grey),
+    );
+  }
+
+  Widget _buildChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 12)),
     );
   }
 }
