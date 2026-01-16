@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:client_app/models/booking_model.dart';
 import 'package:client_app/services/booking_service.dart';
 import 'package:intl/intl.dart';
@@ -129,21 +130,29 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           border: Border.all(color: Colors.grey[300]!),
         ),
         clipBehavior: Clip.antiAlias,
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: location,
-            zoom: 14,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: location,
+            initialZoom: 14,
+            interactionOptions: const InteractionOptions(flags: InteractiveFlag.none), // Static map
           ),
-          markers: {
-            Marker(
-              markerId: const MarkerId('pickup'),
-              position: location,
-              infoWindow: InfoWindow(title: _booking!.pickupLocation ?? 'Pickup Location'),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.client_app',
             ),
-          },
-          zoomControlsEnabled: false,
-          mapToolbarEnabled: false,
-          myLocationButtonEnabled: false,
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: location,
+                  width: 40,
+                  height: 40,
+                  child: const Icon(Icons.location_on, color: Colors.blue, size: 40),
+                  alignment: Alignment.topCenter,
+                ),
+              ],
+            ),
+          ],
         ),
       );
     }

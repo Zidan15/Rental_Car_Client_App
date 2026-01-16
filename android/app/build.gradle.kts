@@ -1,5 +1,4 @@
-import java.util.Properties
-import java.io.FileInputStream
+
 
 plugins {
     id("com.android.application")
@@ -8,12 +7,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val env = Properties()
-val envFile = rootProject.file("../../.env")
-if (envFile.exists()) {
-    env.load(FileInputStream(envFile))
-}
-val mapsApiKey = env.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
+
 
 android {
     namespace = "com.example.rent_goa_client_app_demo"
@@ -36,9 +30,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
     buildTypes {

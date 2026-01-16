@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:client_app/screens/recommended_cars_screen.dart';
 import 'package:client_app/screens/my_bookings_screen.dart';
 import 'package:client_app/screens/profile_screen.dart';
@@ -430,36 +431,37 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
               Column(
                 children: [
                   Expanded(
-                    child: GoogleMap(
-                      initialCameraPosition: const CameraPosition(
-                        target: _goaCenter,
-                        zoom: 10,
-                      ),
-                      onTap: _onMapTapped,
-                      scrollGesturesEnabled: true,
-                      rotateGesturesEnabled: true,
-                      tiltGesturesEnabled: true,
-                      zoomGesturesEnabled: true,
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('selected'),
-                          position: _selectedLocation,
-                          draggable: true,
-                          onDragEnd: (newPosition) {
-                            setState(() {
-                              _selectedLocation = newPosition;
-                              _selectedLocationName = 'Selected on Map (Goa)';
-                            });
-                          },
-                        ),
-                      },
-                      cameraTargetBounds: CameraTargetBounds(
-                        LatLngBounds(
-                          southwest: const LatLng(14.8, 73.6),
-                          northeast: const LatLng(15.8, 74.5),
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: _goaCenter,
+                        initialZoom: 10,
+                        minZoom: 8,
+                        maxZoom: 18,
+                        onTap: (_, latLng) => _onMapTapped(latLng),
+                        cameraConstraint: CameraConstraint.contain(
+                          bounds: LatLngBounds(
+                            const LatLng(14.8, 73.6),
+                            const LatLng(15.8, 74.5),
+                          ),
                         ),
                       ),
-                      minMaxZoomPreference: const MinMaxZoomPreference(8, 18),
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.example.client_app',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _selectedLocation,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                              alignment: Alignment.topCenter,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
