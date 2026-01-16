@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:client_app/screens/recommended_cars_screen.dart';
 import 'package:client_app/screens/my_bookings_screen.dart';
 import 'package:client_app/screens/profile_screen.dart';
 import 'package:client_app/screens/license_verification_screen.dart';
 import 'package:client_app/screens/initial_screen.dart';
-import 'package:client_app/screens/privacy_policy_screen.dart'; // <--- NEW IMPORT
-import 'package:client_app/screens/terms_conditions_screen.dart'; // <--- NEW IMPORT
+import 'package:client_app/screens/privacy_policy_screen.dart';
+import 'package:client_app/screens/terms_conditions_screen.dart';
 import 'package:client_app/services/user_service.dart';
 import 'package:intl/intl.dart';
 
@@ -26,6 +27,8 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   DateTime? _endDate;
   String? _selectedCarType;
   String? _selectedTransmission;
+  double? _locationLat;
+  double? _locationLng;
 
   // --- Bottom Navigation State ---
   int _currentIndex = 0;
@@ -116,11 +119,19 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
+      enableDrag: false, // Prevents dragging the modal when panning the map
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
       builder: (context) {
         return LocationPickerModal(
           locations: _goaLocations,
-          onLocationSelected: (location) {
-            setState(() => _locationController.text = location);
+          onLocationSelected: (location, {double? lat, double? lng}) {
+            setState(() {
+              _locationController.text = location;
+              _locationLat = lat;
+              _locationLng = lng;
+            });
           },
         );
       },
@@ -140,6 +151,8 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
           startDate: _startDate!,
           endDate: _endDate!,
           location: _locationController.text,
+          locationLat: _locationLat,
+          locationLng: _locationLng,
           carType: _selectedCarType,
           transmission: _selectedTransmission,
         ),
@@ -324,7 +337,7 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
 
 class LocationPickerModal extends StatefulWidget {
   final List<String> locations;
-  final Function(String) onLocationSelected;
+  final Function(String, {double? lat, double? lng}) onLocationSelected;
 
   const LocationPickerModal({
     required this.locations,
@@ -338,6 +351,11 @@ class LocationPickerModal extends StatefulWidget {
 
 class _LocationPickerModalState extends State<LocationPickerModal> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  
+  // Goa center coordinates
+  static const _goaCenter = LatLng(15.2993, 74.1240);
+  LatLng _selectedLocation = _goaCenter;
+  String _selectedLocationName = 'Goa, India';
 
   @override
   void initState() {
@@ -351,9 +369,22 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
     super.dispose();
   }
 
-  void _handleMapLocationPicked(String locationName) {
+  void _handleMapLocationPicked(String locationName, double lat, double lng) {
+    widget.onLocationSelected(locationName, lat: lat, lng: lng);
+    Navigator.pop(context);
+  }
+  
+  void _handleListLocationPicked(String locationName) {
     widget.onLocationSelected(locationName);
     Navigator.pop(context);
+  }
+  
+  void _onMapTapped(LatLng position) {
+    setState(() {
+      _selectedLocation = position;
+      // Show friendly name to user, coords are still saved
+      _selectedLocationName = 'Selected on Map (Goa)';
+    });
   }
 
   @override
@@ -390,49 +421,70 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
                   leading: const Icon(Icons.location_on_outlined, color: Colors.black54),
                   title: Text(widget.locations[index]),
                   onTap: () {
-                    widget.onLocationSelected(widget.locations[index]);
-                    Navigator.pop(context);
+                    _handleListLocationPicked(widget.locations[index]);
                   },
                 ),
               ),
 
-              // 2. Map View Tab (Placeholder)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        height: 200,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey),
+              // 2. Map View Tab - Google Maps
+              Column(
+                children: [
+                  Expanded(
+                    child: GoogleMap(
+                      initialCameraPosition: const CameraPosition(
+                        target: _goaCenter,
+                        zoom: 10,
+                      ),
+                      onTap: _onMapTapped,
+                      scrollGesturesEnabled: true,
+                      rotateGesturesEnabled: true,
+                      tiltGesturesEnabled: true,
+                      zoomGesturesEnabled: true,
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('selected'),
+                          position: _selectedLocation,
+                          draggable: true,
+                          onDragEnd: (newPosition) {
+                            setState(() {
+                              _selectedLocation = newPosition;
+                              _selectedLocationName = 'Selected on Map (Goa)';
+                            });
+                          },
                         ),
-                        child: const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.map, size: 40, color: Colors.black),
-                              SizedBox(height: 8),
-                              Text('Map Integration Area', style: TextStyle(color: Colors.black87)),
-                              Text('(Requires Google Maps Flutter package)', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                            ],
-                          ),
+                      },
+                      cameraTargetBounds: CameraTargetBounds(
+                        LatLngBounds(
+                          southwest: const LatLng(14.8, 73.6),
+                          northeast: const LatLng(15.8, 74.5),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          _handleMapLocationPicked('Custom Location (Map Pin)');
-                        },
-                        child: const Text('Confirm Map Location'),
-                      ),
-                    ],
+                      minMaxZoomPreference: const MinMaxZoomPreference(8, 18),
+                    ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Text(_selectedLocationName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            _handleMapLocationPicked(
+                              _selectedLocationName,
+                              _selectedLocation.latitude,
+                              _selectedLocation.longitude,
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
+                          child: const Text('Confirm Location'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

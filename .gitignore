@@ -46,3 +46,4 @@ app.*.map.json
 
 *.hologram.dart
 .prompt_attachments
+.env

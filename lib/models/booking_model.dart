@@ -9,6 +9,8 @@ class BookingModel {
   final String status;
   final DateTime bookingDate;
   final String? pickupLocation;
+  final double? pickupLat;
+  final double? pickupLng;
   
   // Vehicle details from join
   final String? vehicleBrand;
@@ -25,6 +27,8 @@ class BookingModel {
     required this.status,
     required this.bookingDate,
     this.pickupLocation,
+    this.pickupLat,
+    this.pickupLng,
     this.vehicleBrand,
     this.vehicleModel,
     this.vehicleYear,
@@ -52,6 +56,8 @@ class BookingModel {
       status: json['status'] ?? 'pending',
       bookingDate: DateTime.parse(json['created_at']),
       pickupLocation: json['pickup_location'],
+      pickupLat: json['pickup_lat'] != null ? (json['pickup_lat'] as num).toDouble() : null,
+      pickupLng: json['pickup_lng'] != null ? (json['pickup_lng'] as num).toDouble() : null,
       vehicleBrand: vehicleData?['brand'],
       vehicleModel: vehicleData?['model'],
       vehicleYear: vehicleData?['year'],

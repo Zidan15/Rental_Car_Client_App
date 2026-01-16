@@ -5,8 +5,17 @@ import 'package:client_app/screens/initial_screen.dart';
 import 'package:client_app/screens/search_input_screen.dart';
 import 'package:client_app/services/user_service.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:client_app/utils/maps_loader.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load .env file
+  await dotenv.load(fileName: ".env");
+  
+  // Initialize Google Maps (Web only)
+  await loadGoogleMaps();
 
   await Supabase.initialize(
     url: 'https://ojmzdmtpxdoaisvtefln.supabase.co',

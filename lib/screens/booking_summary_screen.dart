@@ -10,6 +10,8 @@ class BookingSummaryScreen extends StatelessWidget {
   final DateTime startDate;
   final DateTime endDate;
   final String location;
+  final double? locationLat;
+  final double? locationLng;
 
   const BookingSummaryScreen({
     super.key,
@@ -17,6 +19,8 @@ class BookingSummaryScreen extends StatelessWidget {
     required this.startDate,
     required this.endDate,
     required this.location,
+    this.locationLat,
+    this.locationLng,
   });
 
   int get numberOfDays => endDate.difference(startDate).inDays + 1;
@@ -113,6 +117,8 @@ class BookingSummaryScreen extends StatelessWidget {
         endDate: endDate,
         totalPrice: totalPrice,
         pickupLocation: location,
+        pickupLat: locationLat,
+        pickupLng: locationLng,
       );
 
       debugPrint('BookingSummary: Booking created successfully!');

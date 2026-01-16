@@ -27,6 +27,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Future<void> _loadBookings() async {
     debugPrint('MyBookingsScreen: Loading bookings...');
     final user = await _userService.getCurrentUser();
+    if (!mounted) return; // Check if widget is still in tree
+    
     if (user == null) {
       debugPrint('MyBookingsScreen: User is NULL - not logged in!');
       setState(() => _isLoading = false);
@@ -36,6 +38,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     debugPrint('MyBookingsScreen: User ID = ${user.id}');
     final bookings = await _bookingService.getUserBookings(user.id);
     debugPrint('MyBookingsScreen: Got ${bookings.length} bookings');
+    
+    if (!mounted) return; // Check again after async operation
     setState(() {
       _bookings = bookings;
       _isLoading = false;

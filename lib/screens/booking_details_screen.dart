@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:client_app/models/booking_model.dart';
 import 'package:client_app/services/booking_service.dart';
 import 'package:intl/intl.dart';
@@ -71,24 +72,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             const SizedBox(height: 16),
             _buildInfoRow('Location', _booking!.pickupLocation ?? 'Not specified'),
             // Map placeholder for future integration
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.map, size: 48, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text('Map coming soon', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              ),
-            ),
+            _buildMapWidget(),
             
             const SizedBox(height: 24),
             
@@ -129,6 +113,58 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMapWidget() {
+    // If we have coordinates, show the map
+    if (_booking!.pickupLat != null && _booking!.pickupLng != null) {
+      final location = LatLng(_booking!.pickupLat!, _booking!.pickupLng!);
+      return Container(
+        height: 180,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: location,
+            zoom: 14,
+          ),
+          markers: {
+            Marker(
+              markerId: const MarkerId('pickup'),
+              position: location,
+              infoWindow: InfoWindow(title: _booking!.pickupLocation ?? 'Pickup Location'),
+            ),
+          },
+          zoomControlsEnabled: false,
+          mapToolbarEnabled: false,
+          myLocationButtonEnabled: false,
+        ),
+      );
+    }
+    
+    // No coordinates - show placeholder
+    return Container(
+      height: 150,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.location_on, size: 48, color: Colors.grey),
+            SizedBox(height: 8),
+            Text('Location selected from list', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
       ),
     );
   }

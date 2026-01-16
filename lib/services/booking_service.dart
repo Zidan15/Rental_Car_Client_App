@@ -12,6 +12,8 @@ class BookingService {
     required DateTime endDate,
     required double totalPrice,
     required String pickupLocation,
+    double? pickupLat,
+    double? pickupLng,
   }) async {
     try {
       final userId = _supabase.auth.currentUser!.id;
@@ -23,6 +25,8 @@ class BookingService {
         'end_date': endDate.toIso8601String(),
         'total_price': totalPrice,
         'pickup_location': pickupLocation,
+        'pickup_lat': pickupLat,
+        'pickup_lng': pickupLng,
         'status': 'pending',
       });
     } catch (e) {

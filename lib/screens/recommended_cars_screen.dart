@@ -7,6 +7,8 @@ class RecommendedCarsScreen extends StatefulWidget {
   final DateTime startDate;
   final DateTime endDate;
   final String location;
+  final double? locationLat;
+  final double? locationLng;
   final String? carType;
   final String? transmission;
 
@@ -15,6 +17,8 @@ class RecommendedCarsScreen extends StatefulWidget {
     required this.startDate,
     required this.endDate,
     required this.location,
+    this.locationLat,
+    this.locationLng,
     this.carType,
     this.transmission,
   });
@@ -111,6 +115,8 @@ class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
                               startDate: widget.startDate,
                               endDate: widget.endDate,
                               location: widget.location,
+                              locationLat: widget.locationLat,
+                              locationLng: widget.locationLng,
                             ),
                           ),
                         ),
