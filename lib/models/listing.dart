@@ -17,6 +17,11 @@ class Listing {
   final String? color;
   final String? plateNumber;
   final String? imageUrl;
+  
+  // Location (Joined from provider_locations)
+  final double? vehicleLat;
+  final double? vehicleLng;
+  final String? vehicleLocationName;
 
   Listing({
     required this.id,
@@ -33,6 +38,9 @@ class Listing {
     this.color,
     this.plateNumber,
     this.imageUrl,
+    this.vehicleLat,
+    this.vehicleLng,
+    this.vehicleLocationName,
   });
 
   /// Creates a Listing from vehicles table JSON (merged architecture)
@@ -54,6 +62,13 @@ class Listing {
       color: json['color'],
       plateNumber: json['plate_number'],
       imageUrl: json['image_url'],
+      vehicleLat: (json['provider_locations'] != null && json['provider_locations']['lat'] != null)
+          ? (json['provider_locations']['lat'] as num).toDouble()
+          : null,
+      vehicleLng: (json['provider_locations'] != null && json['provider_locations']['lng'] != null)
+          ? (json['provider_locations']['lng'] as num).toDouble()
+          : null,
+      vehicleLocationName: json['provider_locations']?['name'],
     );
   }
 }

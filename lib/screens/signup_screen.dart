@@ -73,13 +73,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
       
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signup successful! Please login.')),
+        const SnackBar(content: Text('Signup successful!')),
       );
 
-      // Navigate to Login Screen (InitialScreen)
+      // Navigate to Home Screen (SearchInputScreen) - Auto Login
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => InitialScreen()),
+        MaterialPageRoute(builder: (_) => const SearchInputScreen()),
         (route) => false,
       );
     } catch (e) {

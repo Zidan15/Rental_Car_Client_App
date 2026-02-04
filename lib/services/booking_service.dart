@@ -6,7 +6,7 @@ import 'package:client_app/models/booking_model.dart';
 class BookingService {
   final _supabase = Supabase.instance.client;
 
-  Future<void> createBooking({
+  Future<String> createBooking({
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
@@ -18,7 +18,7 @@ class BookingService {
     try {
       final userId = _supabase.auth.currentUser!.id;
 
-      await _supabase.from('bookings').insert({
+      final response = await _supabase.from('bookings').insert({
         'vehicle_id': listing.id,
         'renter_id': userId,
         'start_date': startDate.toIso8601String(),
@@ -27,10 +27,20 @@ class BookingService {
         'pickup_location': pickupLocation,
         'pickup_lat': pickupLat,
         'pickup_lng': pickupLng,
-        'status': 'pending',
-      });
+        'status': 'pending', // Default status
+      }).select().single();
+
+      return response['id'];
     } catch (e) {
       throw Exception('Failed to create booking: $e');
+    }
+  }
+
+  Future<void> updateBookingStatus(String bookingId, String status) async {
+    try {
+      await _supabase.from('bookings').update({'status': status}).eq('id', bookingId);
+    } catch (e) {
+      throw Exception('Failed to update booking status: $e');
     }
   }
 

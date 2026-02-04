@@ -111,7 +111,7 @@ class BookingSummaryScreen extends StatelessWidget {
     debugPrint('BookingSummary: Creating booking...');
     
     try {
-      await bookingService.createBooking(
+      final bookingId = await bookingService.createBooking(
         listing: listing,
         startDate: startDate,
         endDate: endDate,
@@ -123,13 +123,21 @@ class BookingSummaryScreen extends StatelessWidget {
 
       debugPrint('BookingSummary: Booking created successfully!');
       
+      debugPrint('BookingSummary: Booking created successfully! ID: $bookingId');
+      
       if (!context.mounted) return;
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Booking Request Sent!'), backgroundColor: Colors.green),
+      // Proceed to Payment Screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentScreen(
+            bookingId: bookingId,
+            amount: totalPrice,
+            vehicleName: '${listing.brand} ${listing.model}',
+          ),
+        ),
       );
-      
-      Navigator.popUntil(context, (route) => route.isFirst);
       
     } catch (e) {
       debugPrint('BookingSummary: Error creating booking: $e');

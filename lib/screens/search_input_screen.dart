@@ -10,9 +10,13 @@ import 'package:client_app/screens/privacy_policy_screen.dart';
 import 'package:client_app/screens/terms_conditions_screen.dart';
 import 'package:client_app/services/user_service.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class SearchInputScreen extends StatefulWidget {
-  const SearchInputScreen({super.key});
+  final int initialIndex;
+
+  const SearchInputScreen({super.key, this.initialIndex = 0});
 
   @override
   State<SearchInputScreen> createState() => _SearchInputScreenState();
@@ -32,7 +36,13 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   double? _locationLng;
 
   // --- Bottom Navigation State ---
-  int _currentIndex = 0;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+  }
 
   void _onTabTapped(int index) {
     setState(() {
@@ -383,9 +393,49 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
   void _onMapTapped(LatLng position) {
     setState(() {
       _selectedLocation = position;
-      // Show friendly name to user, coords are still saved
-      _selectedLocationName = 'Selected on Map (Goa)';
+      _selectedLocation = position;
+      _selectedLocationName = 'Fetching address...';
     });
+    
+    _getAddressFromLatLng(position);
+  }
+
+  Future<void> _getAddressFromLatLng(LatLng position) async {
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&zoom=18&addressdetails=1',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'RentGoaApp/1.0'}, // Required by Nominatim
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final displayName = data['display_name'] as String?;
+        
+        // Shorten address for display (keep first 3 parts)
+        String shortAddress = 'Unknown Location';
+        if (displayName != null) {
+          final parts = displayName.split(', ');
+          shortAddress = parts.take(3).join(', ');
+        }
+
+        if (mounted) {
+          setState(() {
+            _selectedLocationName = shortAddress;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching address: $e');
+      if (mounted) {
+        setState(() {
+          _selectedLocationName = 'Selected on Map (Address not found)';
+        });
+      }
+    }
   }
 
   @override
@@ -438,12 +488,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
                         minZoom: 8,
                         maxZoom: 18,
                         onTap: (_, latLng) => _onMapTapped(latLng),
-                        cameraConstraint: CameraConstraint.contain(
-                          bounds: LatLngBounds(
-                            const LatLng(14.8, 73.6),
-                            const LatLng(15.8, 74.5),
-                          ),
-                        ),
+                        // Removed strict constraint - it caused assertion errors
                       ),
                       children: [
                         TileLayer(

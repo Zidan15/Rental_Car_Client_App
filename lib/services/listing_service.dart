@@ -11,10 +11,10 @@ class ListingService {
     try {
       debugPrint('Fetching listed vehicles from Supabase...');
       
-      // Query vehicles table directly where is_listed = true
+      // Query vehicles table directly where is_listed = true, with location join
       final data = await _supabase
           .from('vehicles')
-          .select('*')
+          .select('*, provider_locations(lat, lng, name)')
           .eq('is_listed', true);
 
       debugPrint('Raw data received: ${data.length} vehicles');

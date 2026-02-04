@@ -38,7 +38,7 @@ class BookingModel {
   
   String get vehicleDisplayName {
     if (vehicleBrand != null && vehicleModel != null) {
-      return '$vehicleYear $vehicleBrand $vehicleModel';
+      return '$vehicleBrand $vehicleModel';
     }
     return 'Vehicle #${vehicleId.substring(0, 8)}...';
   }

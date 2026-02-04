@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:client_app/models/listing.dart';
 import 'package:client_app/services/listing_service.dart';
 import 'package:client_app/screens/booking_summary_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 class RecommendedCarsScreen extends StatefulWidget {
   final DateTime startDate;
@@ -30,6 +31,7 @@ class RecommendedCarsScreen extends StatefulWidget {
 class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
   final _listingService = ListingService();
   List<Listing> _listings = [];
+  Map<String, double> _distances = {}; // Stores distance for each listing ID
   bool _isLoading = true;
 
   @override
@@ -70,6 +72,27 @@ class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
 
     debugPrint('After filtering: ${filteredListings.length} listings');
 
+    // Calculate distances and sort if location is available
+    if (widget.locationLat != null && widget.locationLng != null) {
+      final Distance distance = const Distance();
+      final pickupPoint = LatLng(widget.locationLat!, widget.locationLng!);
+
+      // Calculate distances
+      for (var l in filteredListings) {
+        if (l.vehicleLat != null && l.vehicleLng != null) {
+          final km = distance.as(LengthUnit.Kilometer, pickupPoint, LatLng(l.vehicleLat!, l.vehicleLng!));
+          _distances[l.id] = km;
+        }
+      }
+
+      // Sort by distance (nearest first)
+      filteredListings.sort((a, b) {
+        final distA = _distances[a.id] ?? 999999;
+        final distB = _distances[b.id] ?? 999999;
+        return distA.compareTo(distB);
+      });
+    }
+
     setState(() {
       _listings = filteredListings;
       _isLoading = false;
@@ -107,6 +130,7 @@ class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
                       final listing = _listings[index];
                       return ListingCard(
                         listing: listing,
+                        distanceKm: _distances[listing.id],
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -130,9 +154,10 @@ class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
 
 class ListingCard extends StatelessWidget {
   final Listing listing;
+  final double? distanceKm;
   final VoidCallback onTap;
 
-  const ListingCard({super.key, required this.listing, required this.onTap});
+  const ListingCard({super.key, required this.listing, this.distanceKm, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +190,52 @@ class ListingCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${listing.brand} ${listing.model} ${listing.year}', style: Theme.of(context).textTheme.titleLarge),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${listing.brand} ${listing.model} ${listing.year}', style: Theme.of(context).textTheme.titleLarge),
+                      if (distanceKm != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.location_on, size: 14, color: Colors.green),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${distanceKm!.toStringAsFixed(1)} km',
+                                style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  // Location info row
+                  if (listing.vehicleLocationName != null || distanceKm != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.storefront, size: 16, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          listing.vehicleLocationName ?? 'Unknown Location',
+                          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                        ),
+                        if (distanceKm != null) ...[
+                          Text(' • ', style: TextStyle(color: Colors.grey[400])),
+                          Text(
+                            '${distanceKm!.toStringAsFixed(1)} km away',
+                            style: const TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [
