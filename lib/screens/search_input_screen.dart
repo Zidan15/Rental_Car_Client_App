@@ -398,8 +398,26 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
     Navigator.pop(context);
   }
   
+  static const Map<String, LatLng> _locationCoordinates = {
+    'Panaji': LatLng(15.4909, 73.8278),
+    'Calangute': LatLng(15.5494, 73.7535),
+    'Baga': LatLng(15.5553, 73.7517),
+    'Candolim': LatLng(15.5181, 73.7626),
+    'Anjuna': LatLng(15.5733, 73.7410),
+    'Vagator': LatLng(15.6029, 73.7336),
+    'Palolem': LatLng(15.0099, 74.0232),
+    'Colva': LatLng(15.2754, 73.9136),
+    'Mapusa': LatLng(15.5940, 73.8159),
+    'Margao': LatLng(15.2832, 73.9862),
+  };
+
   void _handleListLocationPicked(String locationName) {
-    widget.onLocationSelected(locationName);
+    final coords = _locationCoordinates[locationName];
+    if (coords != null) {
+      widget.onLocationSelected(locationName, lat: coords.latitude, lng: coords.longitude);
+    } else {
+      widget.onLocationSelected(locationName);
+    }
     Navigator.pop(context);
   }
   

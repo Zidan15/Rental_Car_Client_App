@@ -127,15 +127,30 @@ class BookingSummaryScreen extends StatelessWidget {
       
       if (!context.mounted) return;
       
-      // Proceed to Payment Screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PaymentScreen(
-            bookingId: bookingId,
-            amount: totalPrice,
-            vehicleName: '${listing.brand} ${listing.model}',
-          ),
+      // Navigate to My Bookings Screen (Index 1 is usually the specific tab, adjust if needed)
+      // Assuming SearchInputScreen has a way to go to bookings or we pop to root
+      // Ideally, we want to go MyBookings.
+      
+      // For now, let's pop until we are back at the main screen and switch tab, 
+      // or just push MyBookingsScreen for immediate feedback.
+      // Better UX: Show Success Dialog then go to Home.
+      
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Booking Requested!'),
+          content: const Text('Your booking is now pending approval from the provider. You will be notified once it is approved.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop(); // Close dialog
+                Navigator.of(context).popUntil((route) => route.isFirst); // Go to home
+                // Optionally trigger tab switch to My Bookings here if accessible
+              },
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
       

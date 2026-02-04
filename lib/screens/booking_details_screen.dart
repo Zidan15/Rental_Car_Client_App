@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:client_app/models/booking_model.dart';
 import 'package:client_app/services/booking_service.dart';
 import 'package:intl/intl.dart';
+import 'package:client_app/screens/payment_screen.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
   final String bookingId;
@@ -18,11 +19,52 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   final _bookingService = BookingService();
   BookingModel? _booking;
   bool _isLoading = true;
+  bool _isCancelling = false;
 
   @override
   void initState() {
     super.initState();
     _loadBooking();
+  }
+
+  // ... (existing _loadBooking method)
+
+  Future<void> _cancelBooking() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Booking?'),
+        content: const Text('Are you sure you want to cancel this booking? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('No, Keep it'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isCancelling = true);
+
+    try {
+      await _bookingService.updateBookingStatus(widget.bookingId, 'cancelled');
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking Cancelled')));
+      _loadBooking(); // Refresh to show updated status
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error cancelling: $e')));
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
   }
 
   Future<void> _loadBooking() async {
@@ -93,6 +135,98 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             const SizedBox(height: 16),
             const Divider(),
             _buildInfoRow('Total Price', '₹${_booking!.totalPrice.toStringAsFixed(0)}', isBold: true),
+            
+            const SizedBox(height: 32),
+            
+            // ACTION BUTTONS
+            if (_booking!.status == 'pending')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.access_time, color: Colors.orange, size: 32),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Waiting for Approval',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange[800]),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'The provider will review your request shortly.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              )
+            else if (_booking!.status == 'approved')
+              ElevatedButton(
+                onPressed: () {
+                   Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PaymentScreen(
+                        bookingId: _booking!.id,
+                        amount: _booking!.totalPrice,
+                        vehicleName: _booking!.vehicleDisplayName,
+                      ),
+                    ),
+                  ).then((_) => _loadBooking()); // Refresh when coming back
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: const Text('Pay Now to Confirm'),
+              )
+            else if (_booking!.status == 'confirmed')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text(
+                      'Booking Confirmed',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                    ),
+                  ],
+                ),
+              ),
+            
+            // Cancel Button - Available for pending, approved, and confirmed bookings
+            if (['pending', 'approved', 'confirmed'].contains(_booking!.status)) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: _isCancelling ? null : _cancelBooking,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: _isCancelling
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                      )
+                    : const Text('Cancel Booking'),
+              ),
+            ],
           ],
         ),
       ),

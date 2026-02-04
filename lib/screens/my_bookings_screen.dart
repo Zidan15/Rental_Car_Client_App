@@ -135,13 +135,16 @@ class BookingCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: booking.status == 'pending' ? Colors.orange : 
-                           booking.status == 'confirmed' ? Colors.green : Colors.grey[300],
+                           booking.status == 'approved' ? Colors.blue :
+                           booking.status == 'confirmed' ? Colors.green : 
+                           booking.status == 'completed' ? Colors.grey :
+                           booking.status == 'cancelled' ? Colors.red : Colors.grey[300],
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    booking.status.toUpperCase(),
+                    booking.status == 'approved' ? 'PAY NOW' : booking.status.toUpperCase(),
                     style: TextStyle(
-                      color: booking.status == 'pending' || booking.status == 'confirmed' 
+                      color: ['pending', 'confirmed', 'approved', 'cancelled'].contains(booking.status)
                           ? Colors.white : Colors.black,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
