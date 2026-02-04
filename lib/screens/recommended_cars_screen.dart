@@ -193,7 +193,7 @@ class ListingCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${listing.brand} ${listing.model} ${listing.year}', style: Theme.of(context).textTheme.titleLarge),
+                      Text('${listing.brand} ${listing.model}', style: Theme.of(context).textTheme.titleLarge),
                       if (distanceKm != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

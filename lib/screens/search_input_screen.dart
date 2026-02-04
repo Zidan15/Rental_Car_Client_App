@@ -54,12 +54,7 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   final List<String> _carTypes = [
     'Hatchback',
     'Sedan',
-    'Compact SUV',
-    'Full-Size SUV',
-    'MUV/7-Seater',
-    'Luxury/Premium',
-    'Convertible/Open-Top',
-    'Electric',
+    'SUV',
   ];
 
   final List<String> _transmissions = ['Automatic', 'Manual'];
@@ -362,6 +357,10 @@ class LocationPickerModal extends StatefulWidget {
 
 class _LocationPickerModalState extends State<LocationPickerModal> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _mapSearchController = TextEditingController(); // Search controller for MAP tab
+  final MapController _mapController = MapController(); // Controller to move the map
+  List<String> _filteredLocations = [];
   
   // Goa center coordinates
   static const _goaCenter = LatLng(15.2993, 74.1240);
@@ -372,12 +371,26 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _filteredLocations = widget.locations;
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
+    _mapSearchController.dispose();
+    _mapController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredLocations = widget.locations
+          .where((location) => location.toLowerCase().contains(query))
+          .toList();
+    });
   }
 
   void _handleMapLocationPicked(String locationName, double lat, double lng) {
@@ -425,6 +438,7 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
         if (mounted) {
           setState(() {
             _selectedLocationName = shortAddress;
+            _mapSearchController.text = shortAddress;
           });
         }
       }
@@ -434,6 +448,59 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
         setState(() {
           _selectedLocationName = 'Selected on Map (Address not found)';
         });
+      }
+    }
+  }
+
+  Future<void> _getLatLngFromAddress() async {
+    final query = _mapSearchController.text.trim();
+    if (query.isEmpty) return;
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _selectedLocationName = 'Searching...';
+    });
+
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=1',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'RentGoaApp/1.0'},
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          final lat = double.parse(data[0]['lat']);
+          final lon = double.parse(data[0]['lon']);
+          final displayName = data[0]['display_name'];
+
+          if (mounted) {
+            setState(() {
+              _selectedLocation = LatLng(lat, lon);
+              _selectedLocationName = displayName;
+              _mapSearchController.text = displayName;
+            });
+            
+            _mapController.move(_selectedLocation, 15.0); 
+          }
+        } else {
+           if (mounted) {
+            setState(() {
+              _selectedLocationName = 'Location not found';
+            });
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location not found')));
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error searching location: $e');
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error searching location')));
       }
     }
   }
@@ -465,30 +532,53 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
           child: TabBarView(
             controller: _tabController,
             children: [
-              // 1. List View Tab
-              ListView.builder(
-                itemCount: widget.locations.length,
-                itemBuilder: (context, index) => ListTile(
-                  leading: const Icon(Icons.location_on_outlined, color: Colors.black54),
-                  title: Text(widget.locations[index]),
-                  onTap: () {
-                    _handleListLocationPicked(widget.locations[index]);
-                  },
-                ),
+              // 1. List View Tab WITH SEARCH
+              Column(
+                children: [
+                  // Search Bar
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search location...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                      ),
+                    ),
+                  ),
+                  // Location List
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _filteredLocations.length,
+                      itemBuilder: (context, index) => ListTile(
+                        leading: const Icon(Icons.location_on_outlined, color: Colors.black54),
+                        title: Text(_filteredLocations[index]),
+                        onTap: () {
+                          _handleListLocationPicked(_filteredLocations[index]);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
 
-              // 2. Map View Tab - Google Maps
+              // 2. Map View Tab - Google Maps (OSM)
               Column(
                 children: [
                   Expanded(
                     child: FlutterMap(
+                      mapController: _mapController,
                       options: MapOptions(
                         initialCenter: _goaCenter,
                         initialZoom: 10,
                         minZoom: 8,
                         maxZoom: 18,
                         onTap: (_, latLng) => _onMapTapped(latLng),
-                        // Removed strict constraint - it caused assertion errors
                       ),
                       children: [
                         TileLayer(
@@ -513,8 +603,43 @@ class _LocationPickerModalState extends State<LocationPickerModal> with SingleTi
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        Text(_selectedLocationName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
+                        // Search Row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _mapSearchController,
+                                decoration: InputDecoration(
+                                  hintText: 'Search or tap map...',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                ),
+                                onSubmitted: (_) => _getLatLngFromAddress(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: _getLatLngFromAddress,
+                              icon: const Icon(Icons.search),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // Selected Location Text (Small)
+                        Text(
+                          _selectedLocationName,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: () {
                             _handleMapLocationPicked(
