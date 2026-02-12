@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:client_app/models/listing.dart';
 import 'package:client_app/services/listing_service.dart';
+import 'package:client_app/services/license_service.dart';
+import 'package:client_app/services/user_service.dart';
 import 'package:client_app/screens/booking_summary_screen.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -30,14 +32,28 @@ class RecommendedCarsScreen extends StatefulWidget {
 
 class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
   final _listingService = ListingService();
+  final _licenseService = LicenseService();
+  final _userService = UserService();
   List<Listing> _listings = [];
   Map<String, double> _distances = {}; // Stores distance for each listing ID
   bool _isLoading = true;
+  bool _hasLicense = true; // Default to true to avoid flicker
 
   @override
   void initState() {
     super.initState();
     _loadListings();
+    _checkLicenseStatus();
+  }
+
+  Future<void> _checkLicenseStatus() async {
+    final user = await _userService.getCurrentUser();
+    if (user != null) {
+      final hasLicense = await _licenseService.hasSubmittedLicense(user.id);
+      if (mounted) {
+        setState(() => _hasLicense = hasLicense);
+      }
+    }
   }
 
   Future<void> _loadListings() async {
@@ -125,9 +141,35 @@ class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
                   color: Colors.black,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _listings.length,
+                    // Add 1 for the nudge header if license not verified
+                    itemCount: _hasLicense ? _listings.length : _listings.length + 1,
                     itemBuilder: (context, index) {
-                      final listing = _listings[index];
+                      // Show nudge as first item if license not verified
+                      if (!_hasLicense && index == 0) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'License verification required to book',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      
+                      // Adjust index if nudge is shown
+                      final listingIndex = _hasLicense ? index : index - 1;
+                      final listing = _listings[listingIndex];
+                      
                       return ListingCard(
                         listing: listing,
                         distanceKm: _distances[listing.id],

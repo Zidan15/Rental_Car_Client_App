@@ -9,6 +9,7 @@ import 'package:client_app/screens/initial_screen.dart';
 import 'package:client_app/screens/privacy_policy_screen.dart';
 import 'package:client_app/screens/terms_conditions_screen.dart';
 import 'package:client_app/services/user_service.dart';
+import 'package:client_app/services/license_service.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -27,6 +28,7 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   final _endDateController = TextEditingController();
   final _locationController = TextEditingController();
   final _userService = UserService();
+  final _licenseService = LicenseService();
   
   DateTime? _startDate;
   DateTime? _endDate;
@@ -34,6 +36,10 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   String? _selectedTransmission;
   double? _locationLat;
   double? _locationLng;
+  
+  // License banner state
+  bool _hasLicense = true; // Default to true to avoid flicker
+  bool _bannerDismissed = false;
 
   // --- Bottom Navigation State ---
   late int _currentIndex;
@@ -42,6 +48,17 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _checkLicenseStatus();
+  }
+
+  Future<void> _checkLicenseStatus() async {
+    final user = await _userService.getCurrentUser();
+    if (user != null) {
+      final hasLicense = await _licenseService.hasSubmittedLicense(user.id);
+      if (mounted) {
+        setState(() => _hasLicense = hasLicense);
+      }
+    }
   }
 
   void _onTabTapped(int index) {
@@ -185,6 +202,63 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // License Verification Banner (Dismissable)
+            if (!_hasLicense && !_bannerDismissed) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.orange, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Complete verification to book',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Verify your license to start booking vehicles',
+                            style: TextStyle(fontSize: 12, color: Colors.orange[700]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LicenseVerificationScreen()),
+                        );
+                        _checkLicenseStatus(); // Refresh status after returning
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Verify', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    IconButton(
+                      onPressed: () => setState(() => _bannerDismissed = true),
+                      icon: const Icon(Icons.close, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      color: Colors.orange,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            
             const SizedBox(height: 16),
             TextFormField(
               controller: _startDateController,

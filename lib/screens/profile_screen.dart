@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:client_app/models/user_model.dart';
 import 'package:client_app/services/user_service.dart';
+import 'package:client_app/services/license_service.dart';
 import 'package:client_app/screens/initial_screen.dart';
+import 'package:client_app/screens/license_verification_screen.dart';
 import 'package:intl/intl.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,11 +21,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _addressController = TextEditingController();
   final _dobController = TextEditingController();
   final _userService = UserService();
+  final _licenseService = LicenseService();
   
   UserModel? _user;
   DateTime? _selectedDate;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _hasLicense = false;
 
   @override
   void initState() {
@@ -44,8 +48,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUser() async {
     final user = await _userService.getCurrentUser();
     if (user != null) {
+      // Check license status
+      final hasLicense = await _licenseService.hasSubmittedLicense(user.id);
+      
       setState(() {
         _user = user;
+        _hasLicense = hasLicense;
         _nameController.text = user.fullName;
         _emailController.text = user.email;
         _phoneController.text = user.phoneNumber;
@@ -159,6 +167,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                
+                // License Verification Warning Banner
+                if (!_hasLicense) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'License Not Verified',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Verify your license to book vehicles',
+                                style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const LicenseVerificationScreen()),
+                            );
+                            _loadUser(); // Refresh to check new status
+                          },
+                          child: const Text('Verify'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 
                 // Personal Information Section Header
                 const Text(

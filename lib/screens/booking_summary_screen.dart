@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:client_app/models/listing.dart';
 import 'package:client_app/services/user_service.dart';
 import 'package:client_app/services/booking_service.dart';
+import 'package:client_app/services/license_service.dart';
 import 'package:client_app/screens/payment_screen.dart';
+import 'package:client_app/screens/license_verification_screen.dart';
 import 'package:intl/intl.dart';
 
 class BookingSummaryScreen extends StatelessWidget {
@@ -97,6 +99,7 @@ class BookingSummaryScreen extends StatelessWidget {
     
     final userService = UserService();
     final bookingService = BookingService();
+    final licenseService = LicenseService();
     
     debugPrint('BookingSummary: Getting current user...');
     final user = await userService.getCurrentUser();
@@ -106,6 +109,61 @@ class BookingSummaryScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User not found')));
       return;
     }
+
+    // ========== LICENSE VERIFICATION CHECK ==========
+    debugPrint('BookingSummary: Checking license status...');
+    final hasLicense = await licenseService.hasSubmittedLicense(user.id);
+    
+    if (!hasLicense) {
+      debugPrint('BookingSummary: No license found - showing verification prompt');
+      if (!context.mounted) return;
+      
+      // Show modal prompting user to verify
+      final shouldVerify = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('License Required'),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('To complete your booking, please verify your driving license first.'),
+              SizedBox(height: 12),
+              Text(
+                'This is a one-time verification to ensure safe rentals.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Verify Now'),
+            ),
+          ],
+        ),
+      );
+      
+      if (shouldVerify == true && context.mounted) {
+        // Navigate to license verification
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LicenseVerificationScreen()),
+        );
+        // After returning, user can tap button again
+      }
+      return; // Stop here - don't proceed with booking
+    }
+    // ================================================
 
     debugPrint('BookingSummary: User found: ${user.id}');
     debugPrint('BookingSummary: Creating booking...');
@@ -127,14 +185,6 @@ class BookingSummaryScreen extends StatelessWidget {
       
       if (!context.mounted) return;
       
-      // Navigate to My Bookings Screen (Index 1 is usually the specific tab, adjust if needed)
-      // Assuming SearchInputScreen has a way to go to bookings or we pop to root
-      // Ideally, we want to go MyBookings.
-      
-      // For now, let's pop until we are back at the main screen and switch tab, 
-      // or just push MyBookingsScreen for immediate feedback.
-      // Better UX: Show Success Dialog then go to Home.
-      
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -146,7 +196,6 @@ class BookingSummaryScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.of(ctx).pop(); // Close dialog
                 Navigator.of(context).popUntil((route) => route.isFirst); // Go to home
-                // Optionally trigger tab switch to My Bookings here if accessible
               },
               child: const Text('OK'),
             ),
