@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dl_parser.dart';
+import 'cloud_ocr_service.dart';
 
-/// Service for OCR operations using Google ML Kit
+/// Service for OCR operations — Groq Cloud AI + ML Kit fallback
 class OCRService {
   final ImagePicker _picker = ImagePicker();
+  final CloudOCRService _cloudService = CloudOCRService();
   TextRecognizer? _textRecognizer;
 
   TextRecognizer get textRecognizer {
@@ -68,12 +70,63 @@ class OCRService {
     return result?.text ?? '';
   }
 
-  /// Extract and parse DL data from image using spatial parser
+  /// Primary OCR: Uses Groq Cloud AI (Llama 4 Scout Vision).
+  /// If Groq fails, returns an error with [geminiUnavailable] flag
+  /// so the UI can prompt the user to connect to internet or choose offline mode.
   Future<OCRResult> processLicenseImage(File imageFile) async {
     try {
-      // 1. Extract text WITH positions (for triangulation)
+      debugPrint('=== Trying Groq Cloud OCR ===');
+      final cloudResult = await _cloudService.extractFromImage(imageFile);
+
+      if (cloudResult != null && cloudResult.hasEssentialFields) {
+        debugPrint('=== Groq OCR SUCCESS ===');
+        return OCRResult(
+          success: true,
+          parseResult: cloudResult,
+          imageFile: imageFile,
+          source: 'Groq AI',
+        );
+      } else if (cloudResult != null) {
+        // Cloud returned partial data (no DL number)
+        debugPrint('=== Groq OCR: Partial result ===');
+        return OCRResult(
+          success: true,
+          warning: 'Could not detect DL number. Please verify or enter manually.',
+          parseResult: cloudResult,
+          imageFile: imageFile,
+          source: 'Groq AI',
+        );
+      }
+    } on CloudOCRQuotaException catch (e) {
+      // Rate limit hit
+      debugPrint('Groq rate limit: $e');
+      return OCRResult(
+        success: false,
+        error: 'Cloud AI rate limit reached. Please wait a moment and try again.',
+        imageFile: imageFile,
+        geminiUnavailable: true,
+      );
+    } catch (e) {
+      debugPrint('Cloud OCR error: $e');
+    }
+
+    // Cloud OCR failed — don't auto-fallback, let UI decide
+    debugPrint('=== Cloud OCR unavailable ===');
+    return OCRResult(
+      success: false,
+      error: 'Cloud AI requires an internet connection for best accuracy.',
+      imageFile: imageFile,
+      geminiUnavailable: true,
+    );
+  }
+
+  /// Explicit offline OCR: Uses on-device ML Kit + SmartDLParser.
+  /// Called only when user explicitly chooses offline mode.
+  Future<OCRResult> processLicenseImageOffline(File imageFile) async {
+    try {
+      debugPrint('=== Using On-Device ML Kit OCR ===');
       final recognizedText = await extractTextWithPositions(imageFile);
-      
+
       if (recognizedText == null || recognizedText.text.isEmpty) {
         return OCRResult(
           success: false,
@@ -81,22 +134,20 @@ class OCRService {
           imageFile: imageFile,
         );
       }
-      
-      // Debug: Show what OCR detected
-      debugPrint('=== OCR RAW TEXT START ===');
-      debugPrint(recognizedText.text);
-      debugPrint('=== OCR RAW TEXT END ===');
 
-      // 2. Parse using spatial parser (uses bounding boxes)
+      debugPrint('=== ML Kit RAW TEXT START ===');
+      debugPrint(recognizedText.text);
+      debugPrint('=== ML Kit RAW TEXT END ===');
+
       final parseResult = SmartDLParser.parseFromRecognizedText(recognizedText);
 
-      // 3. Return result with partial success if needed
       if (!parseResult.hasEssentialFields) {
         return OCRResult(
-          success: true,  // Allow partial data
+          success: true,
           warning: 'Could not detect DL number. Please verify or enter manually.',
           parseResult: parseResult,
           imageFile: imageFile,
+          source: 'On-Device OCR',
         );
       }
 
@@ -104,9 +155,10 @@ class OCRService {
         success: true,
         parseResult: parseResult,
         imageFile: imageFile,
+        source: 'On-Device OCR',
       );
     } catch (e) {
-      debugPrint('Error processing license: $e');
+      debugPrint('Error processing license offline: $e');
       return OCRResult(
         success: false,
         error: 'Error processing image: $e',
@@ -250,6 +302,8 @@ class OCRResult {
   final String? warning;
   final DLParseResult? parseResult;
   final File? imageFile;
+  final String? source; // 'Gemini AI' or 'On-Device OCR'
+  final bool geminiUnavailable; // true when Gemini failed, UI should prompt user
 
   OCRResult({
     required this.success,
@@ -257,6 +311,8 @@ class OCRResult {
     this.warning,
     this.parseResult,
     this.imageFile,
+    this.source,
+    this.geminiUnavailable = false,
   });
 }
 

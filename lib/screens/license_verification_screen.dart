@@ -152,51 +152,151 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
 
       setState(() => _frontPhoto = photo);
 
-      // Process with OCR
+      // Process with OCR (Gemini Cloud AI)
       final ocrResult = await _ocrService.processLicenseImage(photo);
 
-      // Always try to populate fields if parseResult is available
-      if (ocrResult.parseResult != null) {
-        _populateFieldsFromOCR(ocrResult.parseResult!);
+      // If Gemini is unavailable, show dialog to retry/use offline
+      if (ocrResult.geminiUnavailable && mounted) {
+        setState(() => _isProcessingFront = false);
+        _showGeminiUnavailableDialog(photo, ocrResult.error);
+        return;
       }
 
-      // Use enhanced feedback - PERSISTENT UI instead of SnackBars
-      final feedback = _ocrService.analyzeOCRQuality(ocrResult);
-      
-      if (mounted) {
-        setState(() {
-          // Check if this looks like a DL (has DL number or vehicle classes)
-          _isDLDetected = ocrResult.parseResult?.dlNumber != null ||
-              (ocrResult.parseResult?.vehicleClasses.isNotEmpty ?? false);
-          
-          if (feedback.quality == OCRQuality.good) {
-            _ocrFeedbackType = 'success';
-            _ocrFeedbackMessage = feedback.message;
-            _ocrMissingFields = [];
-          } else if (feedback.quality == OCRQuality.partial) {
-            _ocrFeedbackType = 'warning';
-            _ocrFeedbackMessage = feedback.message;
-            _ocrMissingFields = feedback.missingFields;
-          } else {
-            _ocrFeedbackType = 'error';
-            _ocrFeedbackMessage = feedback.message;
-            _ocrMissingFields = feedback.missingFields;
-            _processingError = '${feedback.message}\n• ${feedback.suggestions.join('\n• ')}';
-          }
-          
-          // If not a DL, show specific error
-          if (!_isDLDetected) {
-            _ocrFeedbackType = 'error';
-            _ocrFeedbackMessage = 'This does not appear to be a Driving License. Please scan a valid Indian DL.';
-            _ocrMissingFields = ['DL Number'];
-          }
-        });
-      }
+      _handleOCRResult(ocrResult);
     } catch (e) {
       setState(() => _processingError = 'Error: $e');
     } finally {
       if (mounted) setState(() => _isProcessingFront = false);
     }
+  }
+
+  /// Handle OCR result from either Gemini or ML Kit
+  void _handleOCRResult(OCRResult ocrResult) {
+    // Always try to populate fields if parseResult is available
+    if (ocrResult.parseResult != null) {
+      _populateFieldsFromOCR(ocrResult.parseResult!);
+    }
+
+    // Use enhanced feedback - PERSISTENT UI instead of SnackBars
+    final feedback = _ocrService.analyzeOCRQuality(ocrResult);
+
+    if (mounted) {
+      setState(() {
+        // Check if this looks like a DL (has DL number or vehicle classes)
+        _isDLDetected = ocrResult.parseResult?.dlNumber != null ||
+            (ocrResult.parseResult?.vehicleClasses.isNotEmpty ?? false);
+
+        if (feedback.quality == OCRQuality.good) {
+          _ocrFeedbackType = 'success';
+          final sourceTag = ocrResult.source != null ? ' (${ocrResult.source})' : '';
+          _ocrFeedbackMessage = '${feedback.message}$sourceTag';
+          _ocrMissingFields = [];
+        } else if (feedback.quality == OCRQuality.partial) {
+          _ocrFeedbackType = 'warning';
+          final sourceTag = ocrResult.source != null ? ' (${ocrResult.source})' : '';
+          _ocrFeedbackMessage = '${feedback.message}$sourceTag';
+          _ocrMissingFields = feedback.missingFields;
+        } else {
+          _ocrFeedbackType = 'error';
+          _ocrFeedbackMessage = feedback.message;
+          _ocrMissingFields = feedback.missingFields;
+          _processingError = '${feedback.message}\n• ${feedback.suggestions.join('\n• ')}';
+        }
+
+        // If not a DL, show specific error
+        if (!_isDLDetected) {
+          _ocrFeedbackType = 'error';
+          _ocrFeedbackMessage = 'This does not appear to be a Driving License. Please scan a valid Indian DL.';
+          _ocrMissingFields = ['DL Number'];
+        }
+      });
+    }
+  }
+
+  /// Show dialog when Gemini Cloud AI is unavailable
+  void _showGeminiUnavailableDialog(File photo, [String? errorMessage]) {
+    final isQuotaError = errorMessage?.contains('quota') == true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              isQuotaError ? Icons.timer_off : Icons.cloud_off,
+              color: Colors.orange,
+              size: 28,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(isQuotaError ? 'API Quota Reached' : 'Cloud AI Unavailable'),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              errorMessage ?? 'An internet connection is needed for accurate license scanning.',
+              style: const TextStyle(fontSize: 15),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'You can:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            if (!isQuotaError) const Text('• Connect to WiFi/data and retry'),
+            if (isQuotaError) const Text('• Wait and try again later'),
+            const Text('• Use offline mode (less accurate)'),
+            const Text('• Enter details manually'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // User will enter manually
+            },
+            child: const Text('Enter Manually'),
+          ),
+          OutlinedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              setState(() => _isProcessingFront = true);
+              try {
+                final offlineResult =
+                    await _ocrService.processLicenseImageOffline(photo);
+                _handleOCRResult(offlineResult);
+              } finally {
+                if (mounted) setState(() => _isProcessingFront = false);
+              }
+            },
+            child: const Text('Use Offline'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              setState(() => _isProcessingFront = true);
+              try {
+                final retryResult =
+                    await _ocrService.processLicenseImage(photo);
+                if (retryResult.geminiUnavailable && mounted) {
+                  setState(() => _isProcessingFront = false);
+                  _showGeminiUnavailableDialog(photo, retryResult.error);
+                  return;
+                }
+                _handleOCRResult(retryResult);
+              } finally {
+                if (mounted) setState(() => _isProcessingFront = false);
+              }
+            },
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
   }
   
   void _showQualityDialog(ImageQualityResult qualityResult) {
