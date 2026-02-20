@@ -152,10 +152,10 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
 
       setState(() => _frontPhoto = photo);
 
-      // Process with OCR (Gemini Cloud AI)
+      // Process with OCR (Cloud AI)
       final ocrResult = await _ocrService.processLicenseImage(photo);
 
-      // If Gemini is unavailable, show dialog to retry/use offline
+      // If Cloud AI is unavailable, show dialog to retry/use offline
       if (ocrResult.geminiUnavailable && mounted) {
         setState(() => _isProcessingFront = false);
         _showGeminiUnavailableDialog(photo, ocrResult.error);
@@ -170,7 +170,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
     }
   }
 
-  /// Handle OCR result from either Gemini or ML Kit
+  /// Handle OCR result from either Cloud AI or ML Kit
   void _handleOCRResult(OCRResult ocrResult) {
     // Always try to populate fields if parseResult is available
     if (ocrResult.parseResult != null) {
@@ -188,13 +188,11 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
 
         if (feedback.quality == OCRQuality.good) {
           _ocrFeedbackType = 'success';
-          final sourceTag = ocrResult.source != null ? ' (${ocrResult.source})' : '';
-          _ocrFeedbackMessage = '${feedback.message}$sourceTag';
+          _ocrFeedbackMessage = feedback.message;
           _ocrMissingFields = [];
         } else if (feedback.quality == OCRQuality.partial) {
           _ocrFeedbackType = 'warning';
-          final sourceTag = ocrResult.source != null ? ' (${ocrResult.source})' : '';
-          _ocrFeedbackMessage = '${feedback.message}$sourceTag';
+          _ocrFeedbackMessage = feedback.message;
           _ocrMissingFields = feedback.missingFields;
         } else {
           _ocrFeedbackType = 'error';
@@ -213,7 +211,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
     }
   }
 
-  /// Show dialog when Gemini Cloud AI is unavailable
+  /// Show dialog when Cloud AI is unavailable
   void _showGeminiUnavailableDialog(File photo, [String? errorMessage]) {
     final isQuotaError = errorMessage?.contains('quota') == true;
     showDialog(
