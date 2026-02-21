@@ -207,9 +207,35 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   ],
                 ),
               ),
+            else if (_booking!.status == 'rejected')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.cancel, color: Colors.red, size: 32),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Booking Rejected',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red[800]),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'The provider has declined this booking request.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
             
             // Cancel Button - Available for pending, approved, and confirmed bookings
-            if (['pending', 'approved', 'confirmed'].contains(_booking!.status)) ...[
+            if (['pending', 'approved', 'confirmed'].contains(_booking!.status) && _booking!.status != 'rejected') ...[
               const SizedBox(height: 16),
               OutlinedButton(
                 onPressed: _isCancelling ? null : _cancelBooking,

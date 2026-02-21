@@ -133,7 +133,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey[200]!),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10),
                         ],
                       ),
                       child: QrImageView(

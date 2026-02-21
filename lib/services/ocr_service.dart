@@ -71,7 +71,7 @@ class OCRService {
   }
 
   /// Primary OCR: Uses Groq Cloud AI (Llama 4 Scout Vision).
-  /// If Groq fails, returns an error with [geminiUnavailable] flag
+  /// If Cloud AI fails, returns an error with [cloudUnavailable] flag
   /// so the UI can prompt the user to connect to internet or choose offline mode.
   Future<OCRResult> processLicenseImage(File imageFile) async {
     try {
@@ -104,7 +104,7 @@ class OCRService {
         success: false,
         error: 'Cloud AI rate limit reached. Please wait a moment and try again.',
         imageFile: imageFile,
-        geminiUnavailable: true,
+        cloudUnavailable: true,
       );
     } catch (e) {
       debugPrint('Cloud OCR error: $e');
@@ -116,7 +116,7 @@ class OCRService {
       success: false,
       error: 'Cloud AI requires an internet connection for best accuracy.',
       imageFile: imageFile,
-      geminiUnavailable: true,
+      cloudUnavailable: true,
     );
   }
 
@@ -302,8 +302,8 @@ class OCRResult {
   final String? warning;
   final DLParseResult? parseResult;
   final File? imageFile;
-  final String? source; // 'Gemini AI' or 'On-Device OCR'
-  final bool geminiUnavailable; // true when Gemini failed, UI should prompt user
+  final String? source; // 'Groq AI' or 'On-Device OCR'
+  final bool cloudUnavailable; // true when Cloud AI failed, UI should prompt user
 
   OCRResult({
     required this.success,
@@ -312,7 +312,7 @@ class OCRResult {
     this.parseResult,
     this.imageFile,
     this.source,
-    this.geminiUnavailable = false,
+    this.cloudUnavailable = false,
   });
 }
 

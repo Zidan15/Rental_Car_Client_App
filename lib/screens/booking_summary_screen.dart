@@ -179,7 +179,8 @@ class BookingSummaryScreen extends StatelessWidget {
         pickupLng: locationLng,
       );
 
-      debugPrint('BookingSummary: Booking created successfully!');
+
+
       
       debugPrint('BookingSummary: Booking created successfully! ID: $bookingId');
       

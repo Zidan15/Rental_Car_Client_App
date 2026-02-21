@@ -156,9 +156,9 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
       final ocrResult = await _ocrService.processLicenseImage(photo);
 
       // If Cloud AI is unavailable, show dialog to retry/use offline
-      if (ocrResult.geminiUnavailable && mounted) {
+      if (ocrResult.cloudUnavailable && mounted) {
         setState(() => _isProcessingFront = false);
-        _showGeminiUnavailableDialog(photo, ocrResult.error);
+        _showCloudUnavailableDialog(photo, ocrResult.error);
         return;
       }
 
@@ -212,7 +212,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
   }
 
   /// Show dialog when Cloud AI is unavailable
-  void _showGeminiUnavailableDialog(File photo, [String? errorMessage]) {
+  void _showCloudUnavailableDialog(File photo, [String? errorMessage]) {
     final isQuotaError = errorMessage?.contains('quota') == true;
     showDialog(
       context: context,
@@ -280,9 +280,9 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
               try {
                 final retryResult =
                     await _ocrService.processLicenseImage(photo);
-                if (retryResult.geminiUnavailable && mounted) {
+                if (retryResult.cloudUnavailable && mounted) {
                   setState(() => _isProcessingFront = false);
-                  _showGeminiUnavailableDialog(photo, retryResult.error);
+                  _showCloudUnavailableDialog(photo, retryResult.error);
                   return;
                 }
                 _handleOCRResult(retryResult);
@@ -847,7 +847,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
+        color: statusColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: statusColor),
       ),
@@ -924,7 +924,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
                           icon: const Icon(Icons.refresh, size: 16),
                           label: const Text('Retake'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black.withOpacity(0.7),
+                            backgroundColor: Colors.black.withValues(alpha: 0.7),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             textStyle: const TextStyle(fontSize: 12),
