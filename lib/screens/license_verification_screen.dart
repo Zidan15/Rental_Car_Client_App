@@ -47,6 +47,15 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
   List<String> _ocrMissingFields = [];
   String? _ocrFeedbackType; // 'success', 'warning', 'error'
 
+  // [TEST MODE] Enrollment tab state
+  File? _enrollPhoto;
+  bool _isEnrolling = false;
+  bool _isEnrollProcessing = false;
+  String? _enrollDLNumber;
+  String? _enrollHolderName;
+  String? _enrollFeedback;
+  bool _enrollSuccess = false;
+
   @override
   void initState() {
     super.initState();
@@ -522,6 +531,96 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
     }
   }
 
+  // ===== [TEST MODE] Enrollment Logic =====
+  Future<void> _captureEnrollPhoto() async {
+    if (kIsWeb) {
+      _showWebWarning();
+      return;
+    }
+
+    setState(() {
+      _isEnrollProcessing = true;
+      _enrollFeedback = null;
+      _enrollSuccess = false;
+    });
+
+    try {
+      final source = await _showImageSourceDialog();
+      if (source == null) {
+        setState(() => _isEnrollProcessing = false);
+        return;
+      }
+
+      File? photo;
+      if (source == ImageSourceOption.camera) {
+        photo = await _ocrService.capturePhoto();
+      } else {
+        photo = await _ocrService.pickFromGallery();
+      }
+
+      if (photo == null) {
+        setState(() => _isEnrollProcessing = false);
+        return;
+      }
+
+      setState(() => _enrollPhoto = photo);
+
+      // Run OCR
+      final ocrResult = await _ocrService.processLicenseImage(photo);
+
+      if (ocrResult.cloudUnavailable) {
+        // Try offline
+        final offlineResult = await _ocrService.processLicenseImageOffline(photo);
+        if (offlineResult.success && offlineResult.parseResult?.dlNumber != null) {
+          setState(() {
+            _enrollDLNumber = offlineResult.parseResult!.dlNumber;
+            _enrollHolderName = offlineResult.parseResult!.holderName;
+            _enrollFeedback = 'DL Number detected: $_enrollDLNumber (offline mode)';
+          });
+        } else {
+          setState(() => _enrollFeedback = '❌ Could not detect DL number. Try again.');
+        }
+      } else if (ocrResult.success && ocrResult.parseResult?.dlNumber != null) {
+        setState(() {
+          _enrollDLNumber = ocrResult.parseResult!.dlNumber;
+          _enrollHolderName = ocrResult.parseResult!.holderName;
+          _enrollFeedback = 'DL Number detected: $_enrollDLNumber';
+        });
+      } else {
+        setState(() => _enrollFeedback = '❌ Could not detect DL number. Try again.');
+      }
+    } catch (e) {
+      setState(() => _enrollFeedback = '❌ Error: $e');
+    } finally {
+      if (mounted) setState(() => _isEnrollProcessing = false);
+    }
+  }
+
+  Future<void> _enrollLicense() async {
+    if (_enrollDLNumber == null) return;
+    setState(() => _isEnrolling = true);
+
+    try {
+      final success = await _licenseService.enrollLicenseInDatabase(
+        dlNumber: _enrollDLNumber!,
+        holderName: _enrollHolderName,
+      );
+
+      if (success) {
+        setState(() {
+          _enrollFeedback = '✅ License "$_enrollDLNumber" enrolled in test database!';
+          _enrollSuccess = true;
+        });
+      } else {
+        setState(() => _enrollFeedback = '❌ Failed to enroll. Check RLS policies on valid_dl_records.');
+      }
+    } catch (e) {
+      setState(() => _enrollFeedback = '❌ Error: $e');
+    } finally {
+      if (mounted) setState(() => _isEnrolling = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -530,296 +629,455 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('License Verification')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Existing license status
-                if (_existingLicense != null) ...[
-                  _buildStatusCard(),
-                  const SizedBox(height: 24),
-                ],
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('License Verification'),
+          bottom: const TabBar(
+            labelColor: Colors.black,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.black,
+            tabs: [
+              Tab(text: 'Verify License'),
+              Tab(text: 'Enroll [TEST]'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildVerifyTab(),
+            _buildEnrollTab(),
+          ],
+        ),
+      ),
+    );
+  }
 
-                // Web warning
-                if (kIsWeb) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.warning_amber, color: Colors.orange),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'OCR verification requires a mobile device. Use the Android/iOS app for best experience.',
-                            style: TextStyle(color: Colors.orange, fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // Front Photo Section
-                const Text('Step 1: Capture License Front', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _buildPhotoCapture(
-                  photo: _frontPhoto,
-                  isProcessing: _isProcessingFront,
-                  onCapture: _captureFrontPhoto,
-                  label: 'Front of License',
-                ),
+  Widget _buildVerifyTab() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Existing license status
+              if (_existingLicense != null) ...[
+                _buildStatusCard(),
                 const SizedBox(height: 24),
+              ],
 
-                // Back Photo Section
-                const Text('Step 2: Capture License Back (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _buildPhotoCapture(
-                  photo: _backPhoto,
-                  isProcessing: _isProcessingBack,
-                  onCapture: _captureBackPhoto,
-                  label: 'Back of License',
-                ),
-                const SizedBox(height: 24),
-
-                // ===== OCR FEEDBACK CARD (Persistent) =====
-                if (_ocrFeedbackMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _ocrFeedbackType == 'success' 
-                          ? Colors.green[50] 
-                          : _ocrFeedbackType == 'warning' 
-                              ? Colors.orange[50] 
-                              : Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _ocrFeedbackType == 'success' 
-                            ? Colors.green[300]! 
-                            : _ocrFeedbackType == 'warning' 
-                                ? Colors.orange[300]! 
-                                : Colors.red[300]!,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              _ocrFeedbackType == 'success' 
-                                  ? Icons.check_circle 
-                                  : _ocrFeedbackType == 'warning' 
-                                      ? Icons.warning_amber_rounded 
-                                      : Icons.error_outline,
-                              color: _ocrFeedbackType == 'success' 
-                                  ? Colors.green 
-                                  : _ocrFeedbackType == 'warning' 
-                                      ? Colors.orange 
-                                      : Colors.red,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _ocrFeedbackMessage!,
-                                style: TextStyle(
-                                  color: _ocrFeedbackType == 'success' 
-                                      ? Colors.green[800] 
-                                      : _ocrFeedbackType == 'warning' 
-                                          ? Colors.orange[800] 
-                                          : Colors.red[800],
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
+              // Web warning
+              if (kIsWeb) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.orange),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'OCR verification requires a mobile device. Use the Android/iOS app for best experience.',
+                          style: TextStyle(color: Colors.orange, fontSize: 13),
                         ),
-                        if (_ocrMissingFields.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Missing: ${_ocrMissingFields.join(', ')}',
-                            style: TextStyle(
-                              color: Colors.grey[700],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                        if (!_isDLDetected && _ocrFeedbackType == 'error') ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Text fields are locked. Please scan a valid Driving License.',
-                            style: TextStyle(
-                              color: Colors.red[700],
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Processing error (separate)
-                if (_processingError != null && _ocrFeedbackMessage == null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(_processingError!, style: const TextStyle(color: Colors.red, fontSize: 13))),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Extracted/Manual Fields
-                const Text('Step 3: Verify Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(
-                  _isDLDetected 
-                      ? 'Fields auto-filled from OCR. Edit if needed.' 
-                      : 'Scan a valid Driving License to fill these fields.',
-                  style: TextStyle(color: _isDLDetected ? Colors.grey : Colors.red[400], fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-
-                // DL Number (Required)
-                TextFormField(
-                  controller: _dlNumberController,
-                  enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                  decoration: InputDecoration(
-                    labelText: 'DL Number *',
-                    suffixIcon: _dlNumberController.text.isNotEmpty 
-                        ? const Icon(Icons.check_circle, color: Colors.green, size: 20) 
-                        : null,
-                  ),
-                  validator: (v) => v?.isEmpty ?? true ? 'DL number is required' : null,
-                ),
-                const SizedBox(height: 16),
-
-                // Name
-                TextFormField(
-                  controller: _holderNameController,
-                  enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                  decoration: const InputDecoration(labelText: 'Name on License'),
-                ),
-                const SizedBox(height: 16),
-
-                // Father's Name
-                TextFormField(
-                  controller: _fatherNameController,
-                  enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                  decoration: const InputDecoration(labelText: 'Father\'s Name'),
-                ),
-                const SizedBox(height: 16),
-
-                // DOB and Blood Group Row
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _dobController,
-                        enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                        decoration: const InputDecoration(labelText: 'Date of Birth'),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _bloodGroupController,
-                        enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                        decoration: const InputDecoration(labelText: 'Blood Group'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Issue Date and Valid Till Row (Swapped order)
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _issueDateController,
-                        enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                        decoration: const InputDecoration(labelText: 'Issue Date'),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _validTillController,
-                        enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                        decoration: const InputDecoration(labelText: 'Valid Till'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Address
-                TextFormField(
-                  controller: _addressController,
-                  enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    alignLabelWithHint: true,
+                    ],
                   ),
-                  maxLines: 5,
-                  minLines: 2,
-                ),
-                const SizedBox(height: 16),
-
-                // Vehicle Classes
-                if (_vehicleClasses.isNotEmpty) ...[
-                  const Text('Vehicle Classes', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: _vehicleClasses.map((c) => Chip(label: Text(c))).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                const SizedBox(height: 16),
-
-                // Submit Button
-                ElevatedButton(
-                  onPressed: (_isSubmitting || !(_isDLDetected || (_existingLicense != null && _frontPhoto == null))) 
-                      ? null 
-                      : _submitLicense,
-                  child: _isSubmitting 
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                      : Text(!_isDLDetected && (_existingLicense == null || _frontPhoto != null)
-                          ? 'Scan Valid DL First' 
-                          : 'Submit for Verification'),
                 ),
                 const SizedBox(height: 24),
               ],
-            ),
+
+              // Front Photo Section
+              const Text('Step 1: Capture License Front', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              _buildPhotoCapture(
+                photo: _frontPhoto,
+                isProcessing: _isProcessingFront,
+                onCapture: _captureFrontPhoto,
+                label: 'Front of License',
+              ),
+              const SizedBox(height: 24),
+
+              // Back Photo Section
+              const Text('Step 2: Capture License Back (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              _buildPhotoCapture(
+                photo: _backPhoto,
+                isProcessing: _isProcessingBack,
+                onCapture: _captureBackPhoto,
+                label: 'Back of License',
+              ),
+              const SizedBox(height: 24),
+
+              // ===== OCR FEEDBACK CARD (Persistent) =====
+              if (_ocrFeedbackMessage != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _ocrFeedbackType == 'success' 
+                        ? Colors.green[50] 
+                        : _ocrFeedbackType == 'warning' 
+                            ? Colors.orange[50] 
+                            : Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _ocrFeedbackType == 'success' 
+                          ? Colors.green[300]! 
+                          : _ocrFeedbackType == 'warning' 
+                              ? Colors.orange[300]! 
+                              : Colors.red[300]!,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _ocrFeedbackType == 'success' 
+                                ? Icons.check_circle 
+                                : _ocrFeedbackType == 'warning' 
+                                    ? Icons.warning_amber_rounded 
+                                    : Icons.error_outline,
+                            color: _ocrFeedbackType == 'success' 
+                                ? Colors.green 
+                                : _ocrFeedbackType == 'warning' 
+                                    ? Colors.orange 
+                                    : Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _ocrFeedbackMessage!,
+                              style: TextStyle(
+                                color: _ocrFeedbackType == 'success' 
+                                    ? Colors.green[800] 
+                                    : _ocrFeedbackType == 'warning' 
+                                        ? Colors.orange[800] 
+                                        : Colors.red[800],
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_ocrMissingFields.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Missing: ${_ocrMissingFields.join(', ')}',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      if (!_isDLDetected && _ocrFeedbackType == 'error') ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Text fields are locked. Please scan a valid Driving License.',
+                          style: TextStyle(
+                            color: Colors.red[700],
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Processing error (separate)
+              if (_processingError != null && _ocrFeedbackMessage == null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_processingError!, style: const TextStyle(color: Colors.red, fontSize: 13))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Extracted/Manual Fields
+              const Text('Step 3: Verify Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(
+                _isDLDetected 
+                    ? 'Fields auto-filled from OCR. Edit if needed.' 
+                    : 'Scan a valid Driving License to fill these fields.',
+                style: TextStyle(color: _isDLDetected ? Colors.grey : Colors.red[400], fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+
+              // DL Number (Required)
+              TextFormField(
+                controller: _dlNumberController,
+                enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                decoration: InputDecoration(
+                  labelText: 'DL Number *',
+                  suffixIcon: _dlNumberController.text.isNotEmpty 
+                      ? const Icon(Icons.check_circle, color: Colors.green, size: 20) 
+                      : null,
+                ),
+                validator: (v) => v?.isEmpty ?? true ? 'DL number is required' : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Name
+              TextFormField(
+                controller: _holderNameController,
+                enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                decoration: const InputDecoration(labelText: 'Name on License'),
+              ),
+              const SizedBox(height: 16),
+
+              // Father's Name
+              TextFormField(
+                controller: _fatherNameController,
+                enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                decoration: const InputDecoration(labelText: 'Father\'s Name'),
+              ),
+              const SizedBox(height: 16),
+
+              // DOB and Blood Group Row
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _dobController,
+                      enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                      decoration: const InputDecoration(labelText: 'Date of Birth'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _bloodGroupController,
+                      enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                      decoration: const InputDecoration(labelText: 'Blood Group'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Issue Date and Valid Till Row
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _issueDateController,
+                      enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                      decoration: const InputDecoration(labelText: 'Issue Date'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _validTillController,
+                      enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                      decoration: const InputDecoration(labelText: 'Valid Till'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Address
+              TextFormField(
+                controller: _addressController,
+                enabled: (_existingLicense != null && _frontPhoto == null) || _isDLDetected,
+                decoration: const InputDecoration(
+                  labelText: 'Address',
+                  alignLabelWithHint: true,
+                ),
+                maxLines: 5,
+                minLines: 2,
+              ),
+              const SizedBox(height: 16),
+
+              // Vehicle Classes
+              if (_vehicleClasses.isNotEmpty) ...[
+                const Text('Vehicle Classes', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: _vehicleClasses.map((c) => Chip(label: Text(c))).toList(),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Submit Button
+              ElevatedButton(
+                onPressed: (_isSubmitting || !(_isDLDetected || (_existingLicense != null && _frontPhoto == null))) 
+                    ? null 
+                    : _submitLicense,
+                child: _isSubmitting 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                    : Text(!_isDLDetected && (_existingLicense == null || _frontPhoto != null)
+                        ? 'Scan Valid DL First' 
+                        : 'Submit for Verification'),
+              ),
+              const SizedBox(height: 24),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// [TEST MODE] Enrollment tab — scans license and inserts into valid_dl_records
+  Widget _buildEnrollTab() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // TEST MODE WARNING BANNER
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber, width: 2),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.science, color: Colors.amber, size: 28),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '⚠️ TEST MODE',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'This tab populates the demo verification database. '
+                          'Scan a real license here first, then verify it in the "Verify License" tab. '
+                          'Not present in production.',
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Scan Section
+            const Text('Step 1: Scan License to Enroll', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            _buildPhotoCapture(
+              photo: _enrollPhoto,
+              isProcessing: _isEnrollProcessing,
+              onCapture: _captureEnrollPhoto,
+              label: 'Scan License for Enrollment',
+            ),
+            const SizedBox(height: 24),
+
+            // Detected DL info
+            if (_enrollDLNumber != null) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Detected DL Number:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    const SizedBox(height: 4),
+                    Text(_enrollDLNumber!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    if (_enrollHolderName != null) ...[
+                      const SizedBox(height: 8),
+                      Text('Holder: $_enrollHolderName', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Feedback
+            if (_enrollFeedback != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _enrollSuccess ? Colors.green[50] : Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _enrollSuccess ? Colors.green[300]! : Colors.orange[300]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _enrollSuccess ? Icons.check_circle : Icons.info_outline,
+                      color: _enrollSuccess ? Colors.green : Colors.orange,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _enrollFeedback!,
+                        style: TextStyle(
+                          color: _enrollSuccess ? Colors.green[800] : Colors.orange[800],
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Enroll Button
+            ElevatedButton(
+              onPressed: (_enrollDLNumber == null || _isEnrolling || _enrollSuccess)
+                  ? null
+                  : _enrollLicense,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber[700],
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: _enrollSuccess ? Colors.green[100] : null,
+              ),
+              child: _isEnrolling
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(_enrollSuccess
+                      ? '✅ Enrolled — Now verify in Tab 1'
+                      : _enrollDLNumber == null
+                          ? 'Scan a License First'
+                          : 'Enroll in Test Database'),
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );

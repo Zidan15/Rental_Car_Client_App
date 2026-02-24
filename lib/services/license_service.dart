@@ -170,6 +170,46 @@ class LicenseService {
     final license = await getUserLicense(userId);
     return license?.verificationStatus == 'verified';
   }
+
+  /// [TEST MODE] Enroll a license number into the valid_dl_records table
+  /// This populates the demo database so auto-verification works.
+  Future<bool> enrollLicenseInDatabase({
+    required String dlNumber,
+    String? holderName,
+    String? validTill,
+  }) async {
+    try {
+      final cleanDL = dlNumber.toUpperCase().replaceAll(' ', '');
+      
+      // Check if already enrolled
+      final existing = await _supabase
+          .from('valid_dl_records')
+          .select()
+          .eq('dl_number', cleanDL)
+          .maybeSingle();
+      
+      if (existing != null) {
+        debugPrint('License $cleanDL already enrolled in database');
+        return true; // Already exists, treat as success
+      }
+
+      // Default valid_till to 5 years from now
+      final defaultValidTill = DateTime.now().add(const Duration(days: 365 * 5));
+      
+      await _supabase.from('valid_dl_records').insert({
+        'dl_number': cleanDL,
+        'status': 'active',
+        'holder_name': holderName,
+        'valid_till': validTill ?? defaultValidTill.toIso8601String().split('T').first,
+      });
+      
+      debugPrint('License $cleanDL enrolled in test database');
+      return true;
+    } catch (e) {
+      debugPrint('Error enrolling license: $e');
+      return false;
+    }
+  }
 }
 
 class VerificationResult {

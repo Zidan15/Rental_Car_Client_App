@@ -49,7 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = await _userService.getCurrentUser();
     if (user != null) {
       // Check license status
-      final hasLicense = await _licenseService.hasSubmittedLicense(user.id);
+      final hasLicense = await _licenseService.isLicenseVerified(user.id);
       
       setState(() {
         _user = user;

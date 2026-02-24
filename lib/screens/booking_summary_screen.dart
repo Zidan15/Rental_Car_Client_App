@@ -112,10 +112,10 @@ class BookingSummaryScreen extends StatelessWidget {
 
     // ========== LICENSE VERIFICATION CHECK ==========
     debugPrint('BookingSummary: Checking license status...');
-    final hasLicense = await licenseService.hasSubmittedLicense(user.id);
+    final hasLicense = await licenseService.isLicenseVerified(user.id);
     
     if (!hasLicense) {
-      debugPrint('BookingSummary: No license found - showing verification prompt');
+      debugPrint('BookingSummary: License not verified - showing verification prompt');
       if (!context.mounted) return;
       
       // Show modal prompting user to verify

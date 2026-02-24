@@ -54,7 +54,7 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
   Future<void> _checkLicenseStatus() async {
     final user = await _userService.getCurrentUser();
     if (user != null) {
-      final hasLicense = await _licenseService.hasSubmittedLicense(user.id);
+      final hasLicense = await _licenseService.isLicenseVerified(user.id);
       if (mounted) {
         setState(() => _hasLicense = hasLicense);
       }
