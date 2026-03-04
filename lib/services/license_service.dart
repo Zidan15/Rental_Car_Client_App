@@ -176,6 +176,7 @@ class LicenseService {
   Future<bool> enrollLicenseInDatabase({
     required String dlNumber,
     String? holderName,
+    String? dateOfBirth,
     String? validTill,
   }) async {
     try {
@@ -196,18 +197,56 @@ class LicenseService {
       // Default valid_till to 5 years from now
       final defaultValidTill = DateTime.now().add(const Duration(days: 365 * 5));
       
-      await _supabase.from('valid_dl_records').insert({
+      final insertData = <String, dynamic>{
         'dl_number': cleanDL,
         'status': 'active',
-        'holder_name': holderName,
         'valid_till': validTill ?? defaultValidTill.toIso8601String().split('T').first,
-      });
+      };
+      // Only add holder_name if available (column may not exist in older schemas)
+      if (holderName != null && holderName.isNotEmpty) {
+        insertData['holder_name'] = holderName;
+      }
+      
+      // Add date_of_birth, parsing to YYYY-MM-DD if needed 
+      if (dateOfBirth != null && dateOfBirth.isNotEmpty) {
+        try {
+          if (dateOfBirth.contains('/')) {
+            final parts = dateOfBirth.split('/');
+            if (parts.length == 3) {
+              final d = parts[0].padLeft(2, '0');
+              final m = parts[1].padLeft(2, '0');
+              final y = parts[2];
+              insertData['date_of_birth'] = '$y-$m-$d';
+            } else {
+              insertData['date_of_birth'] = dateOfBirth; 
+            }
+          } else if (dateOfBirth.contains('-')) {
+             final parts = dateOfBirth.split('-');
+             if (parts.length == 3 && parts[0].length <= 2) {
+               final d = parts[0].padLeft(2, '0');
+               final m = parts[1].padLeft(2, '0');
+               final y = parts[2];
+               insertData['date_of_birth'] = '$y-$m-$d';
+             } else {
+               insertData['date_of_birth'] = dateOfBirth;
+             }
+          } else {
+            insertData['date_of_birth'] = dateOfBirth;
+          }
+        } catch (_) {
+          insertData['date_of_birth'] = '2000-01-01'; // Fallback
+        }
+      } else {
+        insertData['date_of_birth'] = '2000-01-01'; // DB requires a value
+      }
+      
+      await _supabase.from('valid_dl_records').insert(insertData);
       
       debugPrint('License $cleanDL enrolled in test database');
       return true;
     } catch (e) {
       debugPrint('Error enrolling license: $e');
-      return false;
+      rethrow;
     }
   }
 }

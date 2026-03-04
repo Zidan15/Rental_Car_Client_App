@@ -53,6 +53,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
   bool _isEnrollProcessing = false;
   String? _enrollDLNumber;
   String? _enrollHolderName;
+  String? _enrollDOB;
   String? _enrollFeedback;
   bool _enrollSuccess = false;
 
@@ -575,6 +576,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
           setState(() {
             _enrollDLNumber = offlineResult.parseResult!.dlNumber;
             _enrollHolderName = offlineResult.parseResult!.holderName;
+            _enrollDOB = offlineResult.parseResult!.dateOfBirth;
             _enrollFeedback = 'DL Number detected: $_enrollDLNumber (offline mode)';
           });
         } else {
@@ -584,6 +586,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
         setState(() {
           _enrollDLNumber = ocrResult.parseResult!.dlNumber;
           _enrollHolderName = ocrResult.parseResult!.holderName;
+          _enrollDOB = ocrResult.parseResult!.dateOfBirth;
           _enrollFeedback = 'DL Number detected: $_enrollDLNumber';
         });
       } else {
@@ -601,21 +604,18 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
     setState(() => _isEnrolling = true);
 
     try {
-      final success = await _licenseService.enrollLicenseInDatabase(
+      await _licenseService.enrollLicenseInDatabase(
         dlNumber: _enrollDLNumber!,
         holderName: _enrollHolderName,
+        dateOfBirth: _enrollDOB,
       );
 
-      if (success) {
-        setState(() {
-          _enrollFeedback = '✅ License "$_enrollDLNumber" enrolled in test database!';
-          _enrollSuccess = true;
-        });
-      } else {
-        setState(() => _enrollFeedback = '❌ Failed to enroll. Check RLS policies on valid_dl_records.');
-      }
+      setState(() {
+        _enrollFeedback = '✅ License "$_enrollDLNumber" enrolled in test database!';
+        _enrollSuccess = true;
+      });
     } catch (e) {
-      setState(() => _enrollFeedback = '❌ Error: $e');
+      setState(() => _enrollFeedback = '❌ Failed to enroll: $e');
     } finally {
       if (mounted) setState(() => _isEnrolling = false);
     }
