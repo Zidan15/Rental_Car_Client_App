@@ -14,7 +14,7 @@ import 'dl_parser.dart';
 ///   - Does NOT train on your data (better privacy for DL images)
 ///   - Extremely fast inference (~200ms)
 class CloudOCRService {
-  static const String _model = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  static const String _model = 'llama-3.2-11b-vision-instruct';
   static const String _baseUrl = 'https://api.groq.com/openai/v1';
 
   String? _apiKey;
