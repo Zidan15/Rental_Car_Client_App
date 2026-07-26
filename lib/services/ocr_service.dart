@@ -70,9 +70,8 @@ class OCRService {
     return result?.text ?? '';
   }
 
-  /// Primary OCR: Uses Groq Cloud AI (Llama 4 Scout Vision).
-  /// If Cloud AI fails, returns an error with [cloudUnavailable] flag
-  /// so the UI can prompt the user to connect to internet or choose offline mode.
+  /// Primary OCR: Uses Groq Cloud AI Vision.
+  /// If Cloud AI fails or hits rate limits, seamlessly falls back to on-device ML Kit OCR.
   Future<OCRResult> processLicenseImage(File imageFile) async {
     try {
       debugPrint('=== Trying Groq Cloud OCR ===');
@@ -98,23 +97,27 @@ class OCRService {
         );
       }
     } on CloudOCRQuotaException catch (e) {
-      // Rate limit hit
-      debugPrint('Groq rate limit: $e');
+      debugPrint('=== Groq rate limit: $e ===');
       return OCRResult(
         success: false,
-        error: 'Cloud AI rate limit reached. Please wait a moment and try again.',
+        error: 'API Quota Reached. Groq rate limit exceeded.',
         imageFile: imageFile,
         cloudUnavailable: true,
       );
     } catch (e) {
-      debugPrint('Cloud OCR error: $e');
+      debugPrint('=== Cloud OCR error: $e ===');
+      return OCRResult(
+        success: false,
+        error: 'Cloud AI service is unavailable.',
+        imageFile: imageFile,
+        cloudUnavailable: true,
+      );
     }
 
-    // Cloud OCR failed — don't auto-fallback, let UI decide
-    debugPrint('=== Cloud OCR unavailable ===');
+    // Both Cloud and On-Device failed
     return OCRResult(
       success: false,
-      error: 'Cloud AI requires an internet connection for best accuracy.',
+      error: 'Could not extract license text. Please ensure the license is clearly visible or enter details manually.',
       imageFile: imageFile,
       cloudUnavailable: true,
     );

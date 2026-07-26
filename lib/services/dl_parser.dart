@@ -20,6 +20,7 @@ class SmartDLParser {
     'DRIVING', 'LICENCE', 'LICENSE', 'MOTOR', 'VEHICLE', 'DEPARTMENT',
     'FORM', 'PHOTO', 'SIGN', 'SIGNATURE', 'AUTHORITY', 'COMMISSIONER',
     'REGIONAL', 'OFFICE', 'RTO', 'DTO', 'SARATHI', 'PARIVAHAN',
+    'HOLDER', 'HOLDERS', 'HOLDE', 'HOLDERSIGNATURE', 'HOLDERSIGN',
     // Field labels (including sideways text like 'DATE OF FIRST ISSUE')
     'NAME', 'DATE', 'BIRTH', 'DOB', 'BLOOD', 'GROUP', 'ADDRESS',
     'ISSUE', 'ISSUED', 'VALID', 'VALIDITY', 'EXPIRY', 'CLASS', 'COV',

@@ -1156,11 +1156,12 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
               )
             : photo != null
                 ? Stack(
-                    fit: StackFit.expand,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(photo, fit: BoxFit.cover),
+                      Positioned.fill(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(photo, fit: BoxFit.cover),
+                        ),
                       ),
                       Positioned(
                         top: 8,
@@ -1177,15 +1178,20 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
                       Positioned(
                         bottom: 8,
                         right: 8,
-                        child: ElevatedButton.icon(
-                          onPressed: onCapture,
-                          icon: const Icon(Icons.refresh, size: 16),
-                          label: const Text('Retake'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black.withValues(alpha: 0.7),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            textStyle: const TextStyle(fontSize: 12),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: ElevatedButton.icon(
+                            onPressed: onCapture,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Retake'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black.withValues(alpha: 0.7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: const TextStyle(fontSize: 12),
+                            ),
                           ),
                         ),
                       ),

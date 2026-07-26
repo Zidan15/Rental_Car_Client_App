@@ -206,7 +206,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                     ),
                   ],
                 ),
-              ),
+              )
             else if (_booking!.status == 'rejected')
               Container(
                 width: double.infinity,

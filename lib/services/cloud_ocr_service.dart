@@ -14,14 +14,14 @@ import 'dl_parser.dart';
 ///   - Does NOT train on your data (better privacy for DL images)
 ///   - Extremely fast inference (~200ms)
 class CloudOCRService {
-  static const String _model = 'llama-3.2-11b-vision-instruct';
+  static const String _model = 'qwen/qwen3.6-27b';
   static const String _baseUrl = 'https://api.groq.com/openai/v1';
 
   String? _apiKey;
 
   /// Load API key from .env asset file
   Future<String?> _getApiKey() async {
-    if (_apiKey != null) return _apiKey;
+    if (_apiKey != null && _apiKey!.isNotEmpty) return _apiKey;
 
     try {
       final envString = await rootBundle.loadString('.env');
@@ -30,7 +30,12 @@ class CloudOCRService {
       for (final line in lines) {
         final trimmed = line.trim();
         if (trimmed.startsWith('GROQ_API_KEY=')) {
-          _apiKey = trimmed.substring('GROQ_API_KEY='.length).trim();
+          var key = trimmed.substring('GROQ_API_KEY='.length).trim();
+          if ((key.startsWith('"') && key.endsWith('"')) ||
+              (key.startsWith("'") && key.endsWith("'"))) {
+            key = key.substring(1, key.length - 1).trim();
+          }
+          _apiKey = key;
           debugPrint('=== Groq API key found (len: ${_apiKey!.length}) ===');
           return _apiKey;
         }
@@ -97,6 +102,7 @@ IMPORTANT:
 - Return ONLY the JSON object, no markdown, no explanation.
 - For dates, always use DD/MM/YYYY format.
 - For DL number, include the state code prefix.
+- For holder_name and father_name, extract ONLY the person's name. Do NOT include nearby text like 'Holder', 'Holder's Signature', 'Signature', etc.
 - If a field is not visible or unclear, set it to null.''',
               },
               {
@@ -109,55 +115,38 @@ IMPORTANT:
           },
         ],
         'temperature': 0.1,
-        'max_completion_tokens': 1024,
+        'max_completion_tokens': 4096,
         'response_format': {'type': 'json_object'},
       };
 
-      debugPrint('=== GROQ API: Sending request... ===');
-      final encodedBody = jsonEncode(requestBody);
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $apiKey',
+            },
+            body: jsonEncode(requestBody),
+          )
+          .timeout(const Duration(seconds: 15));
 
-      // Try up to 2 times (initial + 1 retry for rate limit)
-      for (int attempt = 0; attempt < 2; attempt++) {
-        final response = await http
-            .post(
-              url,
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer $apiKey',
-              },
-              body: encodedBody,
-            )
-            .timeout(const Duration(seconds: 30));
+      debugPrint(
+          '=== GROQ API: Status ${response.statusCode} ===');
 
-        debugPrint(
-            '=== GROQ API: Status ${response.statusCode} (attempt ${attempt + 1}) ===');
-
-        if (response.statusCode == 200) {
-          return _parseResponse(response.body);
-        } else if (response.statusCode == 429 && attempt == 0) {
-          // Rate limited — wait and retry once
-          debugPrint('=== GROQ: Rate limited, waiting 3s before retry... ===');
-          await Future.delayed(const Duration(seconds: 3));
-          continue;
-        } else {
-          debugPrint('=== GROQ API ERROR ===');
-          debugPrint('Status: ${response.statusCode}');
-          final bodySnippet = response.body.length > 300
-              ? response.body.substring(0, 300)
-              : response.body;
-          debugPrint('Body: $bodySnippet');
-
-          if (response.statusCode == 429) {
-            throw CloudOCRQuotaException(
-              'API rate limit reached. Please wait a moment and try again.',
-            );
-          }
-          return null;
-        }
+      if (response.statusCode == 429) {
+        debugPrint('=== GROQ: Rate limited (429) ===');
+        throw CloudOCRQuotaException('Groq API rate limit exceeded');
       }
-      return null;
+
+      if (response.statusCode != 200) {
+        debugPrint('=== GROQ API ERROR: ${response.body} ===');
+        return null;
+      }
+
+      return _parseResponse(response.body);
+    } on CloudOCRQuotaException {
+      rethrow;
     } catch (e) {
-      if (e is CloudOCRQuotaException) rethrow;
       debugPrint('=== GROQ OCR EXCEPTION: $e ===');
       return null;
     }
@@ -184,7 +173,12 @@ IMPORTANT:
       debugPrint(text);
       debugPrint('=== END GROQ OUTPUT ===');
 
-      // Clean up: remove markdown code fences if present
+      // Clean up: remove reasoning thinking blocks (<think>...</think>)
+      if (text.contains('</think>')) {
+        text = text.split('</think>').last.trim();
+      }
+
+      // Remove markdown code fences if present
       text = text.trim();
       if (text.startsWith('```json')) {
         text = text.substring(7);
@@ -195,6 +189,13 @@ IMPORTANT:
         text = text.substring(0, text.length - 3);
       }
       text = text.trim();
+
+      // Extract JSON substring bounded by first '{' and last '}'
+      final firstBrace = text.indexOf('{');
+      final lastBrace = text.lastIndexOf('}');
+      if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+        text = text.substring(firstBrace, lastBrace + 1);
+      }
 
       // Parse the JSON
       final Map<String, dynamic> data = jsonDecode(text);
@@ -211,8 +212,8 @@ IMPORTANT:
 
       final result = DLParseResult(
         dlNumber: _cleanString(data['dl_number']),
-        holderName: _cleanString(data['holder_name']),
-        fatherName: _cleanString(data['father_name']),
+        holderName: _cleanName(data['holder_name']),
+        fatherName: _cleanName(data['father_name']),
         dateOfBirth: _cleanString(data['date_of_birth']),
         issueDate: _cleanString(data['issue_date']),
         validTill: _cleanString(data['valid_till']),
@@ -229,6 +230,15 @@ IMPORTANT:
       debugPrint('Error parsing Groq response: $e');
       return null;
     }
+  }
+
+  /// Clean a name string, removing trailing OCR artifacts like "HOLDER", "SIGNATURE", etc.
+  String? _cleanName(dynamic value) {
+    var s = _cleanString(value);
+    if (s == null) return null;
+    s = s.replaceAll(RegExp(r'\b(HOLDER|HOLDERS|HOLDE|SIGNATURE|SIGN|HOLDER\x27S|HOLDERS\x27)\b', caseSensitive: false), '').trim();
+    s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return s.isEmpty ? null : s;
   }
 
   /// Clean a string value, returning null for empty/null/"null" values
