@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:client_app/services/user_service.dart';
 import 'package:client_app/screens/search_input_screen.dart';
-import 'package:client_app/screens/initial_screen.dart';
 import 'package:intl/intl.dart';
 
 class SignUpScreen extends StatefulWidget {

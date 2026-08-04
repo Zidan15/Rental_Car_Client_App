@@ -3,7 +3,6 @@ import 'package:client_app/models/listing.dart';
 import 'package:client_app/services/user_service.dart';
 import 'package:client_app/services/booking_service.dart';
 import 'package:client_app/services/license_service.dart';
-import 'package:client_app/screens/payment_screen.dart';
 import 'package:client_app/screens/license_verification_screen.dart';
 import 'package:intl/intl.dart';
 

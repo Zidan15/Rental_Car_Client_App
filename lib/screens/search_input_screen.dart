@@ -275,14 +275,14 @@ class _SearchInputScreenState extends State<SearchInputScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedCarType,
+              initialValue: _selectedCarType,
               decoration: const InputDecoration(labelText: 'Car Type'),
               items: _carTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
               onChanged: (value) => setState(() => _selectedCarType = value),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedTransmission,
+              initialValue: _selectedTransmission,
               decoration: const InputDecoration(labelText: 'Transmission'),
               items: _transmissions.map((trans) => DropdownMenuItem(value: trans, child: Text(trans))).toList(),
               onChanged: (value) => setState(() => _selectedTransmission = value),

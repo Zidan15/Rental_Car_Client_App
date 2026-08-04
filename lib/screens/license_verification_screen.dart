@@ -472,6 +472,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
 
     final user = await _userService.getCurrentUser();
     if (user == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User not found')));
       return;
     }

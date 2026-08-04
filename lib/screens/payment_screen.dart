@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:client_app/services/booking_service.dart';
-import 'package:client_app/screens/my_bookings_screen.dart';
 import 'package:client_app/screens/search_input_screen.dart';
 
 class PaymentScreen extends StatefulWidget {

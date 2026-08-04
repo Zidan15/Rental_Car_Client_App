@@ -35,7 +35,7 @@ class _RecommendedCarsScreenState extends State<RecommendedCarsScreen> {
   final _licenseService = LicenseService();
   final _userService = UserService();
   List<Listing> _listings = [];
-  Map<String, double> _distances = {}; // Stores distance for each listing ID
+  final Map<String, double> _distances = {}; // Stores distance for each listing ID
   bool _isLoading = true;
   bool _hasLicense = true; // Default to true to avoid flicker
 

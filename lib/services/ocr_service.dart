@@ -235,19 +235,36 @@ class OCRService {
     final extractedFields = <String>[];
     final missingFields = <String>[];
     
-    if (result.dlNumber != null) extractedFields.add('DL Number');
-    else missingFields.add('DL Number');
+    if (result.dlNumber != null) {
+      extractedFields.add('DL Number');
+    } else {
+      missingFields.add('DL Number');
+    }
     
-    if (result.holderName != null) extractedFields.add('Name');
-    else missingFields.add('Name');
+    if (result.holderName != null) {
+      extractedFields.add('Name');
+    } else {
+      missingFields.add('Name');
+    }
     
-    if (result.dateOfBirth != null) extractedFields.add('DOB');
-    else missingFields.add('DOB');
+    if (result.dateOfBirth != null) {
+      extractedFields.add('DOB');
+    } else {
+      missingFields.add('DOB');
+    }
     
-    if (result.fatherName != null) extractedFields.add('Father\'s Name');
-    if (result.bloodGroup != null) extractedFields.add('Blood Group');
-    if (result.issueDate != null) extractedFields.add('Issue Date');
-    if (result.address != null) extractedFields.add('Address');
+    if (result.fatherName != null) {
+      extractedFields.add('Father\'s Name');
+    }
+    if (result.bloodGroup != null) {
+      extractedFields.add('Blood Group');
+    }
+    if (result.issueDate != null) {
+      extractedFields.add('Issue Date');
+    }
+    if (result.address != null) {
+      extractedFields.add('Address');
+    }
     
     // Good extraction
     if (extractedFields.length >= 4) {

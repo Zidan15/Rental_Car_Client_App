@@ -64,7 +64,7 @@ class _InitialScreenState extends State<InitialScreen> {
 
   void _handleForgotPassword() {
     // Implement navigation or dialog for forgot password
-    print('Forgot Password pressed');
+    debugPrint('Forgot Password pressed');
   }
 
   @override
