@@ -67,7 +67,6 @@ lib/
    Create a `.env` file in the project root:
    ```env
    GROQ_API_KEY=your-groq-api-key
-   GOOGLE_MAPS_API_KEY=your-google-maps-key
    SUPABASE_URL=https://your-supabase-url.supabase.co
    SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
@@ -81,4 +80,4 @@ lib/
 
 ## 📄 Author
 
-Developed by **[Zidan15](https://github.com/Zidan15)** as part of the **Rent.Goa** Smart Vehicle Rental Platform.
+Developed by **[Zidan Shaikh](https://github.com/Zidan15)** as part of the **Rent.Goa** Smart Vehicle Rental Platform.
