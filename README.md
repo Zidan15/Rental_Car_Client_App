@@ -10,6 +10,25 @@ A modern, mobile-first vehicle rental platform designed for tourists and renters
 
 ---
 
+## 📱 App Preview
+
+| Vehicle Search & Filters | Available Vehicles & Distance | My Bookings Dashboard | Booking Summary & Map |
+| :---: | :---: | :---: | :---: |
+| <img src="assets/images/client_search.png" width="200" alt="Search"/> | <img src="assets/images/client_available_cars.png" width="200" alt="Available Cars"/> | <img src="assets/images/client_bookings.png" width="200" alt="My Bookings"/> | <img src="assets/images/client_booking_details.png" width="200" alt="Booking Details"/> |
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+graph TD
+    A["IoT Hardware Node<br/>(Raspberry Pi + MQ-3 Alcohol Sensor + GPS)"] -->|"Live Telemetry Stream (HTTP POST)"| B["Supabase Cloud Platform<br/>(PostgreSQL DB, RPCs, Storage, Auth)"]
+    B -->|"Realtime WebSockets (Live Safety Alerts)"| C["Owner Management App (Flutter)<br/>Fleet & Diagnostics"]
+    D["Renter Client App (Flutter)<br/>Dual OCR (Groq Vision + ML Kit Fallback)"] -->|"Bookings, Verification & Payments"| B
+```
+
+---
+
 ## 🌟 Key Features
 
 * **🔍 Smart Vehicle Discovery**: Browse scooters and cars on an interactive map or list view, complete with price filtering, car types, transmission, and distance calculation.
