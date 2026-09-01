@@ -26,14 +26,6 @@ A modern, mobile-first vehicle rental platform designed for tourists and renters
 
 ---
 
-## 🔄 End-to-End System Flow
-
-<p align="center">
-  <img src="assets/images/system_flow.png" alt="Rent.Goa End-to-End System Flow" width="550"/>
-</p>
-
----
-
 ## 🌟 Key Features
 
 * **🔍 Smart Vehicle Discovery**: Browse scooters and cars on an interactive map or list view, complete with price filtering, car types, transmission, and distance calculation.
