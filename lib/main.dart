@@ -5,12 +5,15 @@ import 'package:client_app/screens/initial_screen.dart';
 import 'package:client_app/screens/search_input_screen.dart';
 import 'package:client_app/services/user_service.dart';
 
+import 'package:client_app/services/env_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Env.load();
   
   await Supabase.initialize(
-    url: 'https://ojmzdmtpxdoaisvtefln.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qbXpkbXRweGRvYWlzdnRlZmxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMTg1NTQsImV4cCI6MjA3ODU5NDU1NH0.YPU2PxWMo_9gPKuH23WaO1RVjMsQZLi8By00b4iA3rM',
+    url: Env.supabaseUrl,
+    anonKey: Env.supabaseAnonKey,
   );
 
   runApp(const RentGoaApp());
