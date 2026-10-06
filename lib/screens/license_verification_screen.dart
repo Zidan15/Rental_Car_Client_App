@@ -948,7 +948,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
     );
   }
 
-  /// [TEST MODE] Enrollment tab — scans license and inserts into valid_dl_records
+  /// [TEST MODE] Enrollment tab: scans license and inserts into valid_dl_records
   Widget _buildEnrollTab() {
     return SafeArea(
       child: SingleChildScrollView(
@@ -1072,7 +1072,7 @@ class _LicenseVerificationScreenState extends State<LicenseVerificationScreen> {
               child: _isEnrolling
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : Text(_enrollSuccess
-                      ? '✅ Enrolled — Now verify in Tab 1'
+                      ? '✅ Enrolled, now verify in Tab 1'
                       : _enrollDLNumber == null
                           ? 'Scan a License First'
                           : 'Enroll in Test Database'),

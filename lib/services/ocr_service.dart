@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dl_parser.dart';
 import 'cloud_ocr_service.dart';
 
-/// Service for OCR operations — Groq Cloud AI + ML Kit fallback
+/// Service for OCR operations: Groq Cloud AI + ML Kit fallback
 class OCRService {
   final ImagePicker _picker = ImagePicker();
   final CloudOCRService _cloudService = CloudOCRService();
