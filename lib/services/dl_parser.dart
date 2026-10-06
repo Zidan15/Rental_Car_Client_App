@@ -16,7 +16,7 @@ class SmartDLParser {
   
   static const _notAName = {
     // Government / document words
-    'INDIA', 'UNION', 'GOVERNMENT', 'STATE', 'TRANSPORT', 'REPUBLIC',
+    'INDIA', 'UNION', 'GOVERNMENT', 'STATE', 'TRANSPORT', 'REPUBLIC', 'GOA',
     'DRIVING', 'LICENCE', 'LICENSE', 'MOTOR', 'VEHICLE', 'DEPARTMENT',
     'FORM', 'PHOTO', 'SIGN', 'SIGNATURE', 'AUTHORITY', 'COMMISSIONER',
     'REGIONAL', 'OFFICE', 'RTO', 'DTO', 'SARATHI', 'PARIVAHAN',
@@ -742,6 +742,38 @@ class SmartDLParser {
     
     debugPrint('Smart sort result: DOB=$dob, Issue=$issue, Valid=$valid');
     return {'dob': dob, 'issue': issue, 'valid': valid};
+  }
+
+  // ==================== VISIBLE FOR TESTING ====================
+
+  @visibleForTesting
+  static bool looksLikeDLNumber(String text) => _looksLikeDLNumber(text);
+
+  @visibleForTesting
+  static String? applyNameBlocklist(String name) => _applyNameBlocklist(name);
+
+  @visibleForTesting
+  static bool couldBeName(String text) => _couldBeName(text);
+
+  @visibleForTesting
+  static Map<String, String?> smartSortDates(List<String> dates) => _smartSortDates(dates);
+
+  @visibleForTesting
+  static String? extractDateFromText(String text) => _extractDateFromText(text);
+
+  @visibleForTesting
+  static String normalizeDL(String dl) => _normalizeDL(dl);
+
+  @visibleForTesting
+  static List<String> extractVehicleClasses(String rawText) => _extractVehicleClasses(rawText);
+
+  @visibleForTesting
+  static Set<String> get notANameBlocklist => _notAName;
+
+  @visibleForTesting
+  static DLParseResult assignFieldsForTesting(List<TextElement> elements, String rawText) {
+    final buckets = _classifyElements(elements);
+    return _assignFields(elements, buckets, rawText);
   }
 }
 

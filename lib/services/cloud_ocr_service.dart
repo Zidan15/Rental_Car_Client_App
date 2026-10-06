@@ -236,7 +236,8 @@ IMPORTANT:
   String? _cleanName(dynamic value) {
     var s = _cleanString(value);
     if (s == null) return null;
-    s = s.replaceAll(RegExp(r'\b(HOLDER|HOLDERS|HOLDE|SIGNATURE|SIGN|HOLDER\x27S|HOLDERS\x27)\b', caseSensitive: false), '').trim();
+    s = s.replaceAll(RegExp(r"\b(HOLDER['\x27]S|HOLDERS['\x27]|HOLDERS|HOLDER|HOLDE|SIGNATURE|SIGN|OF|THE)\b", caseSensitive: false), '').trim();
+    s = s.replaceAll(RegExp(r"['\x27]S\b", caseSensitive: false), '').trim();
     s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
     return s.isEmpty ? null : s;
   }
@@ -248,6 +249,15 @@ IMPORTANT:
     if (s.isEmpty || s.toLowerCase() == 'null') return null;
     return s;
   }
+
+  @visibleForTesting
+  DLParseResult? parseResponse(String responseBody) => _parseResponse(responseBody);
+
+  @visibleForTesting
+  String? cleanName(dynamic value) => _cleanName(value);
+
+  @visibleForTesting
+  String? cleanString(dynamic value) => _cleanString(value);
 }
 
 /// Thrown when the Groq API rate limit is hit

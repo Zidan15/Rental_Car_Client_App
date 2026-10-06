@@ -1,5 +1,6 @@
-# 🛵 Rent.Goa — Renter Client App
+# 🛵 Rent.Goa - Renter Client App
 
+[![Tests](https://github.com/Zidan15/Rental_Car_Client_App/actions/workflows/test.yml/badge.svg)](https://github.com/Zidan15/Rental_Car_Client_App/actions/workflows/test.yml)
 [![Flutter](https://img.shields.io/badge/Flutter-3.41.0-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.11.0-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
